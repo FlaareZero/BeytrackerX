@@ -40,7 +40,7 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useReducer, useEffect, useRef } = React;
+const { useState, useReducer, useEffect, useCallback, useMemo } = React;
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
 const comboLabel = c => {
@@ -55,37 +55,33 @@ const isComplete = c => {
   if (c.system === "CX") return !!(c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit);
   return !!(c.blade && c.ratchet && c.bit);
 };
-const blankCombo = () => ({ system:"BX", blade:"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:"", bit:"" });
-const makeOpp    = (id) => ({ id, ...blankCombo() });
+const blankCombo  = () => ({ system:"BX", blade:"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:"", bit:"" });
+const makeOpp     = (id) => ({ id, ...blankCombo() });
+const blankDeck   = (id) => ({ id, name:`Deck ${id}`, slots:[blankCombo(), blankCombo(), blankCombo()], bonus:0 });
 
-// Aggiorna o crea un record per la mia combo nel registro storico.
-// La combo è identificata dal suo label testuale.
 function mergeMyRecord(records, combo, result, finish, oppLabel) {
   const label = comboLabel(combo);
-  const entry = { id: Date.now(), result, finish: finish || "", opp: oppLabel, ts: new Date().toLocaleTimeString() };
-  const idx = records.findIndex(r => r.label === label);
+  const entry = { id:Date.now(), result, finish:finish||"", opp:oppLabel, ts:new Date().toLocaleTimeString() };
+  const idx   = records.findIndex(r => r.label === label);
   if (idx >= 0) {
-    const r = records[idx];
-    const updated = {
+    return records.map((r,i) => i !== idx ? r : {
       ...r,
-      wins:    r.wins    + (result === 'win'  ? 1 : 0),
-      losses:  r.losses  + (result === 'loss' ? 1 : 0),
-      draws:   r.draws   + (result === 'draw' ? 1 : 0),
+      wins:    r.wins    + (result==='win'  ? 1 : 0),
+      losses:  r.losses  + (result==='loss' ? 1 : 0),
+      draws:   r.draws   + (result==='draw' ? 1 : 0),
       history: [entry, ...r.history],
-    };
-    return records.map((r, i) => i === idx ? updated : r);
+    });
   }
   return [...records, {
-    label,
-    combo: { ...combo },
-    wins:    result === 'win'  ? 1 : 0,
-    losses:  result === 'loss' ? 1 : 0,
-    draws:   result === 'draw' ? 1 : 0,
-    history: [entry],
+    label, combo:{...combo},
+    wins:   result==='win'  ? 1 : 0,
+    losses: result==='loss' ? 1 : 0,
+    draws:  result==='draw' ? 1 : 0,
+    history:[entry],
   }];
 }
 
-const STORAGE_KEY = "beytrackerx_v3";
+const STORAGE_KEY = "beytrackerx_v4";
 
 const INIT_STATE = {
   myCombo:    blankCombo(),
@@ -102,49 +98,50 @@ function reducer(s, a) {
   let next;
   switch (a.type) {
     case "MY":
-      next = { ...s, myCombo: { ...s.myCombo, [a.f]: a.v } };
-      break;
+      next = { ...s, myCombo: { ...s.myCombo, [a.f]: a.v } }; break;
     case "OPP":
-      next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, [a.f]:a.v } : o) };
-      break;
-    case "ADD":
-      next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId: s.nextId+1 };
-      break;
-    case "DEL":
-      next = { ...s, opponents: s.opponents.filter(o => o.id !== a.id) };
-      break;
+      next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, [a.f]:a.v } : o) }; break;
+    case "ADD_OPP":
+      next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId:s.nextId+1 }; break;
+    case "DEL_OPP":
+      next = { ...s, opponents: s.opponents.filter(o => o.id !== a.id) }; break;
     case "LOG": {
       const opp = s.opponents.find(o => o.id === a.oppId);
-      const oppLabel = comboLabel(opp);
-      const updatedRecords = mergeMyRecord(s.myRecords || [], s.myCombo, a.r, a.finish, oppLabel);
-      next = { ...s, myRecords: updatedRecords };
+      next = { ...s, myRecords: mergeMyRecord(s.myRecords||[], s.myCombo, a.r, a.finish, comboLabel(opp)) };
       break;
     }
     case "DEL_RECORD":
-      next = { ...s, myRecords: (s.myRecords || []).filter(r => r.label !== a.label) };
-      break;
+      next = { ...s, myRecords: (s.myRecords||[]).filter(r => r.label !== a.label) }; break;
+    case "ADD_DECK":
+      next = { ...s, decks:[...s.decks, blankDeck(s.nextDeckId)], nextDeckId:s.nextDeckId+1 }; break;
+    case "DEL_DECK":
+      next = { ...s, decks:s.decks.filter(d => d.id !== a.id) }; break;
+    case "DECK_NAME":
+      next = { ...s, decks:s.decks.map(d => d.id===a.id ? {...d, name:a.v} : d) }; break;
+    case "DECK_SLOT":
+      next = { ...s, decks:s.decks.map(d => d.id===a.id ? {
+        ...d, slots:d.slots.map((sl,i) => i===a.idx ? {...sl, [a.f]:a.v} : sl)
+      } : d) }; break;
+    case "DECK_BONUS":
+      next = { ...s, decks:s.decks.map(d => d.id===a.id ? {...d, bonus:Math.max(0,d.bonus+a.delta)} : d) }; break;
     case "VIEW":
-      next = { ...s, view: a.v };
-      break;
+      next = { ...s, view:a.v }; break;
     case "RESTORE":
-      next = { ...INIT_STATE, ...a.data };
-      break;
+      next = { ...INIT_STATE, ...a.data }; break;
     case "FACTORY_RESET":
-      next = { ...INIT_STATE };
-      break;
-    default:
-      return s;
+      next = { ...INIT_STATE }; break;
+    default: return s;
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }
 
-/* ─── SEL ───────────────────────────────────────────────────── */
+/* ─── UI BASE ───────────────────────────────────────────────── */
 function Sel({ val, onChange, opts, ph, accent }) {
   return (
     <select value={val} onChange={e => onChange(e.target.value)}
       style={{ background:"var(--bg-select)", color:"var(--text-primary)",
-               border:`1px solid ${accent || 'var(--border-select)'}`,
+               border:`1px solid ${accent||'var(--border-select)'}`,
                borderRadius:6, padding:6, flex:1, fontSize:12 }}>
       <option value="">{ph}</option>
       {opts.map(o => <option key={o} value={o}>{o}</option>)}
@@ -152,29 +149,26 @@ function Sel({ val, onChange, opts, ph, accent }) {
   );
 }
 
-/* ─── COMBO FORM ────────────────────────────────────────────── */
 function ComboForm({ combo, onChange }) {
-  const ac = SYS_COL[combo.system];
-  const blades = combo.system === "UX" ? UX_BLADES : combo.system === "CX" ? CX_BLADES : BX_BLADES;
+  const ac     = SYS_COL[combo.system];
+  const blades = combo.system==="UX" ? UX_BLADES : combo.system==="CX" ? CX_BLADES : BX_BLADES;
   return (
     <div className="combo-form">
       <div className="sys-toggle">
         {["BX","UX","CX"].map(sys => (
-          <button key={sys} onClick={() => onChange("system", sys)} className="sys-btn"
-            style={{
-              background:  combo.system === sys ? SYS_COL[sys] : 'transparent',
-              color:       combo.system === sys ? '#fff' : 'var(--text-dimmer)',
-              borderColor: SYS_COL[sys]
-            }}>
+          <button key={sys} onClick={() => onChange("system",sys)} className="sys-btn"
+            style={{ background:combo.system===sys ? SYS_COL[sys] : 'transparent',
+                     color:combo.system===sys ? '#fff' : 'var(--text-dimmer)',
+                     borderColor:SYS_COL[sys] }}>
             {sys}
           </button>
         ))}
       </div>
       <div className="row2">
-        <Sel val={combo.blade}   onChange={v => onChange("blade", v)}   opts={blades}   ph="Blade"   accent={ac} />
-        <Sel val={combo.ratchet} onChange={v => onChange("ratchet", v)} opts={RATCHETS} ph="Ratchet" accent={ac} />
+        <Sel val={combo.blade}   onChange={v => onChange("blade",v)}   opts={blades}   ph="Blade"   accent={ac}/>
+        <Sel val={combo.ratchet} onChange={v => onChange("ratchet",v)} opts={RATCHETS} ph="Ratchet" accent={ac}/>
       </div>
-      <Sel val={combo.bit} onChange={v => onChange("bit", v)} opts={BIT_NAMES} ph="Bit" accent={ac} />
+      <Sel val={combo.bit} onChange={v => onChange("bit",v)} opts={BIT_NAMES} ph="Bit" accent={ac}/>
     </div>
   );
 }
@@ -185,7 +179,7 @@ function LogModal({ myCombo, opp, onLog, onClose }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-        <div className="modal-handle" />
+        <div className="modal-handle"/>
         <div className="modal-subtitle">La tua combo</div>
         <div className="modal-vs">{comboLabel(myCombo)}</div>
         <div className="modal-subtitle">vs avversario</div>
@@ -194,11 +188,9 @@ function LogModal({ myCombo, opp, onLog, onClose }) {
         <div className="modal-finish-btns">
           {FINISH_TYPES.map(f => (
             <button key={f} className="finish-btn"
-              style={{
-                background:  finish===f ? 'rgba(0,180,255,0.15)' : 'var(--bg-btn-ghost)',
-                borderColor: finish===f ? '#00b4ff' : 'var(--border-btn)',
-                color:       finish===f ? '#00b4ff' : 'var(--text-secondary)'
-              }}
+              style={{ background:finish===f?'rgba(0,180,255,0.15)':'var(--bg-btn-ghost)',
+                       borderColor:finish===f?'#00b4ff':'var(--border-btn)',
+                       color:finish===f?'#00b4ff':'var(--text-secondary)' }}
               onClick={() => setFinish(f)}>{f}</button>
           ))}
         </div>
@@ -206,7 +198,7 @@ function LogModal({ myCombo, opp, onLog, onClose }) {
           {[['win','VITTORIA','#22c55e'],['draw','PAREGGIO','#f59e0b'],['loss','SCONFITTA','#ef4444']].map(([r,label,col]) => (
             <button key={r} className="result-btn"
               style={{ background:`${col}14`, borderColor:col, color:col }}
-              onClick={() => { onLog(r, finish); onClose(); }}>{label}</button>
+              onClick={() => { onLog(r,finish); onClose(); }}>{label}</button>
           ))}
         </div>
       </div>
@@ -219,47 +211,38 @@ function StatsView({ myRecords, onDelRecord }) {
   const [selected, setSelected] = useState(null);
   const records = myRecords || [];
 
-  if (records.length === 0) {
-    return (
-      <div className="empty-msg">
-        Nessuna partita registrata.<br/>
-        Vai nel Tracker e logga qualche match!
-      </div>
-    );
-  }
+  if (records.length === 0)
+    return <div className="empty-msg">Nessuna partita registrata.<br/>Vai nel Tracker e logga qualche match!</div>;
 
-  // Vista dettaglio di una combo
   if (selected) {
     const rec = records.find(r => r.label === selected);
     if (!rec) { setSelected(null); return null; }
-    const total = rec.wins + rec.losses + rec.draws;
-    const wr = total > 0 ? Math.round(rec.wins / total * 100) : 0;
+    const total = rec.wins+rec.losses+rec.draws;
+    const wr    = total > 0 ? Math.round(rec.wins/total*100) : 0;
+
+    // Raggruppa per avversario
+    const byOpp = {};
+    rec.history.forEach(h => {
+      const k = h.opp||"—";
+      if (!byOpp[k]) byOpp[k] = { opp:k, wins:0, losses:0, draws:0, matches:[] };
+      byOpp[k][h.result==='win'?'wins':h.result==='loss'?'losses':'draws']++;
+      byOpp[k].matches.push(h);
+    });
+
     return (
       <div>
         <button className="back-btn" onClick={() => setSelected(null)}>← Tutte le combo</button>
         <div className="my-combo-card" style={{marginTop:10}}>
           <div className="card-header">
-            <div className="card-accent-bar" />
+            <div className="card-accent-bar"/>
             <span className="card-title" style={{fontSize:11}}>{rec.label}</span>
           </div>
           <div className="total-card">
             <div className="total-nums">
-              <div className="total-num">
-                <div className="total-num-val" style={{color:'#22c55e'}}>{rec.wins}</div>
-                <div className="total-num-label">VINTE</div>
-              </div>
-              <div className="total-num">
-                <div className="total-num-val" style={{color:'#ef4444'}}>{rec.losses}</div>
-                <div className="total-num-label">PERSE</div>
-              </div>
-              <div className="total-num">
-                <div className="total-num-val" style={{color:'#f59e0b'}}>{rec.draws}</div>
-                <div className="total-num-label">PARI</div>
-              </div>
-              <div className="total-wr">
-                <div className="total-wr-val">{wr}%</div>
-                <div className="total-wr-label">WIN RATE</div>
-              </div>
+              <div className="total-num"><div className="total-num-val" style={{color:'#22c55e'}}>{rec.wins}</div><div className="total-num-label">VINTE</div></div>
+              <div className="total-num"><div className="total-num-val" style={{color:'#ef4444'}}>{rec.losses}</div><div className="total-num-label">PERSE</div></div>
+              <div className="total-num"><div className="total-num-val" style={{color:'#f59e0b'}}>{rec.draws}</div><div className="total-num-label">PARI</div></div>
+              <div className="total-wr"><div className="total-wr-val">{wr}%</div><div className="total-wr-label">WIN RATE</div></div>
             </div>
           </div>
         </div>
@@ -267,41 +250,30 @@ function StatsView({ myRecords, onDelRecord }) {
         <div className="section-header" style={{marginTop:16}}>
           <span className="section-title">Match per avversario</span>
         </div>
-
-        {/* Raggruppa la cronologia per avversario */}
-        {(() => {
-          const byOpp = {};
-          rec.history.forEach(h => {
-            const k = h.opp || "—";
-            if (!byOpp[k]) byOpp[k] = { opp:k, wins:0, losses:0, draws:0, matches:[] };
-            byOpp[k][h.result==='win'?'wins':h.result==='loss'?'losses':'draws']++;
-            byOpp[k].matches.push(h);
-          });
-          return Object.values(byOpp).map(g => {
-            const gt = g.wins + g.losses + g.draws;
-            return (
-              <div key={g.opp} className="stats-row" style={{flexDirection:'column', alignItems:'flex-start', gap:6}}>
-                <div style={{display:'flex', width:'100%', alignItems:'center', gap:8}}>
-                  <span style={{flex:1, fontSize:12, fontWeight:800, color:'var(--text-card)'}}>{g.opp}</span>
-                  <span style={{fontSize:11, color:'#22c55e'}}>{g.wins}V</span>
-                  <span style={{fontSize:11, color:'#ef4444'}}>{g.losses}P</span>
-                  <span style={{fontSize:11, color:'#f59e0b'}}>{g.draws}=</span>
-                  <span className="match-count">{gt} match</span>
-                </div>
-                {g.matches.map(h => (
-                  <div key={h.id} style={{display:'flex', gap:8, width:'100%', paddingLeft:4, borderLeft:'2px solid var(--border-card3)'}}>
-                    <span style={{
-                      fontSize:10, fontWeight:800, minWidth:50,
-                      color: h.result==='win'?'#22c55e':h.result==='loss'?'#ef4444':'#f59e0b'
-                    }}>{h.result==='win'?'VINTA':h.result==='loss'?'PERSA':'PARI'}</span>
-                    <span style={{fontSize:10, color:'var(--text-dimmer)', flex:1}}>{h.finish || '—'}</span>
-                    <span style={{fontSize:10, color:'var(--text-ultra)'}}>{h.ts}</span>
-                  </div>
-                ))}
+        {Object.values(byOpp).map(g => {
+          const gt = g.wins+g.losses+g.draws;
+          return (
+            <div key={g.opp} className="stats-row" style={{flexDirection:'column',alignItems:'flex-start',gap:6}}>
+              <div style={{display:'flex',width:'100%',alignItems:'center',gap:8}}>
+                <span style={{flex:1,fontSize:12,fontWeight:800,color:'var(--text-card)'}}>{g.opp}</span>
+                <span style={{fontSize:11,color:'#22c55e'}}>{g.wins}V</span>
+                <span style={{fontSize:11,color:'#ef4444'}}>{g.losses}P</span>
+                <span style={{fontSize:11,color:'#f59e0b'}}>{g.draws}=</span>
+                <span className="match-count">{gt} match</span>
               </div>
-            );
-          });
-        })()}
+              {g.matches.map(h => (
+                <div key={h.id} style={{display:'flex',gap:8,width:'100%',paddingLeft:6,borderLeft:'2px solid var(--border-card3)'}}>
+                  <span style={{fontSize:10,fontWeight:800,minWidth:48,
+                    color:h.result==='win'?'#22c55e':h.result==='loss'?'#ef4444':'#f59e0b'}}>
+                    {h.result==='win'?'VINTA':h.result==='loss'?'PERSA':'PARI'}
+                  </span>
+                  <span style={{fontSize:10,color:'var(--text-dimmer)',flex:1}}>{h.finish||'—'}</span>
+                  <span style={{fontSize:10,color:'var(--text-ultra)'}}>{h.ts}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
 
         <button className="backup-btn danger" style={{marginTop:16}}
           onClick={() => { if(confirm('Eliminare questa combo e tutti i suoi dati?')) { onDelRecord(rec.label); setSelected(null); }}}>
@@ -311,66 +283,180 @@ function StatsView({ myRecords, onDelRecord }) {
     );
   }
 
-  // Lista di tutte le combo
   const sorted = [...records].sort((a,b) => {
-    const ta = a.wins+a.losses+a.draws, tb = b.wins+b.losses+b.draws;
-    const wa = ta > 0 ? a.wins/ta : 0, wb = tb > 0 ? b.wins/tb : 0;
-    return wb - wa;
+    const ta=a.wins+a.losses+a.draws, tb=b.wins+b.losses+b.draws;
+    return (tb>0?b.wins/tb:0) - (ta>0?a.wins/ta:0);
   });
-
-  const totalW = records.reduce((s,r) => s+r.wins,   0);
-  const totalL = records.reduce((s,r) => s+r.losses,  0);
-  const totalD = records.reduce((s,r) => s+r.draws,   0);
-  const totalM = totalW + totalL + totalD;
+  const totalW=records.reduce((s,r)=>s+r.wins,0), totalL=records.reduce((s,r)=>s+r.losses,0), totalD=records.reduce((s,r)=>s+r.draws,0);
+  const totalM=totalW+totalL+totalD;
 
   return (
     <div>
-      {/* Riepilogo globale */}
       <div className="total-card" style={{marginBottom:14}}>
         <div className="total-title">Riepilogo globale · {records.length} combo</div>
         <div className="total-nums">
-          <div className="total-num">
-            <div className="total-num-val" style={{color:'#22c55e'}}>{totalW}</div>
-            <div className="total-num-label">VINTE</div>
-          </div>
-          <div className="total-num">
-            <div className="total-num-val" style={{color:'#ef4444'}}>{totalL}</div>
-            <div className="total-num-label">PERSE</div>
-          </div>
-          <div className="total-num">
-            <div className="total-num-val" style={{color:'#f59e0b'}}>{totalD}</div>
-            <div className="total-num-label">PARI</div>
-          </div>
-          <div className="total-wr">
-            <div className="total-wr-val">{totalM > 0 ? Math.round(totalW/totalM*100) : 0}%</div>
-            <div className="total-wr-label">WIN RATE</div>
-          </div>
+          <div className="total-num"><div className="total-num-val" style={{color:'#22c55e'}}>{totalW}</div><div className="total-num-label">VINTE</div></div>
+          <div className="total-num"><div className="total-num-val" style={{color:'#ef4444'}}>{totalL}</div><div className="total-num-label">PERSE</div></div>
+          <div className="total-num"><div className="total-num-val" style={{color:'#f59e0b'}}>{totalD}</div><div className="total-num-label">PARI</div></div>
+          <div className="total-wr"><div className="total-wr-val">{totalM>0?Math.round(totalW/totalM*100):0}%</div><div className="total-wr-label">WIN RATE</div></div>
         </div>
       </div>
-
       <div className="bits-db-title">Le tue combo testate</div>
-      {sorted.map((rec, i) => {
-        const total = rec.wins + rec.losses + rec.draws;
-        const wr = total > 0 ? Math.round(rec.wins/total*100) : 0;
-        const rankColor = i===0?'#f59e0b':i===1?'#a8a8b8':i===2?'#cd7f32':'var(--text-ghost)';
+      {sorted.map((rec,i) => {
+        const total=rec.wins+rec.losses+rec.draws;
+        const wr=total>0?Math.round(rec.wins/total*100):0;
         return (
-          <div key={rec.label} className="stats-row" style={{cursor:'pointer'}} onClick={() => setSelected(rec.label)}>
-            <div className="stats-rank" style={{color:rankColor}}>#{i+1}</div>
+          <div key={rec.label} className="stats-row" style={{cursor:'pointer'}} onClick={()=>setSelected(rec.label)}>
+            <div className="stats-rank" style={{color:i===0?'#f59e0b':i===1?'#a8a8b8':i===2?'#cd7f32':'var(--text-ghost)'}}>#{i+1}</div>
             <div className="stats-info">
-              <div style={{fontSize:12, fontWeight:800, color:'var(--text-card)', marginBottom:3}}>{rec.label}</div>
+              <div style={{fontSize:12,fontWeight:800,color:'var(--text-card)',marginBottom:3}}>{rec.label}</div>
               <div className="chips-row">
-                <span style={{fontSize:11, color:'#22c55e'}}>{rec.wins}V</span>
-                <span style={{fontSize:11, color:'#ef4444'}}>{rec.losses}P</span>
-                <span style={{fontSize:11, color:'#f59e0b'}}>{rec.draws}=</span>
+                <span style={{fontSize:11,color:'#22c55e'}}>{rec.wins}V</span>
+                <span style={{fontSize:11,color:'#ef4444'}}>{rec.losses}P</span>
+                <span style={{fontSize:11,color:'#f59e0b'}}>{rec.draws}=</span>
                 <span className="match-count">· {total} match</span>
               </div>
             </div>
-            <div className="stats-wp" style={{color:wr>=60?'#22c55e':wr>=40?'#f59e0b':'#ef4444'}}>
-              {wr}%
-            </div>
+            <div className="stats-wp" style={{color:wr>=60?'#22c55e':wr>=40?'#f59e0b':'#ef4444'}}>{wr}%</div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ─── BITS VIEW ─────────────────────────────────────────────── */
+function BitsView() {
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [selected,   setSelected]   = useState(null);
+  const filtered = BITS_DATA.filter(b => typeFilter==="All" || b.type===typeFilter);
+
+  return (
+    <div>
+      <div className="bits-db-title">Database Bit — {BITS_DATA.length} bit</div>
+      <div className="type-filters">
+        {BIT_TYPES.map(t => (
+          <button key={t} className="type-filter-btn"
+            style={{ background:typeFilter===t?(TYPE_COL[t]||'#00b4ff')+'22':'var(--bg-btn-ghost)',
+                     borderColor:typeFilter===t?(TYPE_COL[t]||'#00b4ff'):'var(--border-btn)',
+                     color:typeFilter===t?(TYPE_COL[t]||'#00b4ff'):'var(--text-dimmer)' }}
+            onClick={() => setTypeFilter(t)}>{t}</button>
+        ))}
+      </div>
+
+      {/* Pannello info bit selezionato */}
+      {selected && (() => {
+        const b = BITS_MAP[selected];
+        if (!b) return null;
+        const col = TYPE_COL[b.type] || '#00b4ff';
+        return (
+          <div className="bit-info-card" style={{marginBottom:12,border:`1px solid ${col}44`}}>
+            <div className="bit-info-top">
+              <span className="bit-name" style={{color:col}}>{b.name}</span>
+              <span className="chip" style={{borderColor:col,color:col,background:`${col}18`}}>{b.type}</span>
+              <button className="del-btn" style={{marginLeft:'auto'}} onClick={()=>setSelected(null)}>×</button>
+            </div>
+            <div className="bit-notes" style={{marginBottom:8}}>{b.notes}</div>
+            <div className="bit-mini-stats">
+              {STAT_BARS.map(([lbl,key,c]) => (
+                <div key={lbl} className="bit-mini-stat">
+                  <div className="bit-mini-label">{lbl}</div>
+                  <div className="bar-bg"><div className="bar-fill" style={{width:`${b[key]*10}%`,background:c}}/></div>
+                  <div className="bit-mini-val" style={{color:c}}>{b[key]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="bits-list">
+        {filtered.map(b => {
+          const col = TYPE_COL[b.type] || '#00b4ff';
+          const isSel = selected === b.name;
+          return (
+            <div key={b.name} className="bit-card"
+              style={{border:`1px solid ${isSel?col:' var(--border-card)'}`,cursor:'pointer'}}
+              onClick={() => setSelected(isSel ? null : b.name)}>
+              <div className="bit-card-top">
+                <span className="bit-name">{b.name}</span>
+                <span className="chip" style={{borderColor:col,color:col,background:`${col}18`}}>{b.type}</span>
+              </div>
+              <div className="bit-stats">
+                {STAT_BARS.map(([lbl,key,c]) => (
+                  <div key={lbl} className="bit-stat">
+                    <div className="bit-stat-row"><span>{lbl}</span><span style={{color:c}}>{b[key]}</span></div>
+                    <div className="bit-stat-bar-bg"><div className="bit-stat-bar" style={{width:`${b[key]*10}%`,background:c}}/></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── DECK VIEW ─────────────────────────────────────────────── */
+function DeckView({ decks, dispatch }) {
+  if (decks.length === 0)
+    return (
+      <div>
+        <div className="empty-msg">Nessun deck salvato.<br/>Crea il tuo primo deck!</div>
+        <button className="add-btn" style={{display:'block',margin:'0 auto'}}
+          onClick={() => dispatch({type:"ADD_DECK"})}>+ Nuovo Deck</button>
+      </div>
+    );
+
+  return (
+    <div>
+      <div className="section-header">
+        <span className="section-title">I tuoi deck ({decks.length})</span>
+        <button className="add-btn" onClick={() => dispatch({type:"ADD_DECK"})}>+ Nuovo</button>
+      </div>
+      {decks.map(deck => (
+        <div key={deck.id} className="deck-card">
+          <div className="deck-header">
+            <input className="deck-name-input" value={deck.name}
+              onChange={e => dispatch({type:"DECK_NAME",id:deck.id,v:e.target.value})}/>
+            <button className="deck-del-btn" onClick={() => { if(confirm(`Eliminare "${deck.name}"?`)) dispatch({type:"DEL_DECK",id:deck.id}); }}>×</button>
+          </div>
+          <div className="deck-section-label">COMBO</div>
+          <div className="deck-combos">
+            {deck.slots.map((slot, idx) => {
+              const complete = isComplete(slot);
+              return (
+                <div key={idx} className="deck-combo-slot">
+                  <div className="deck-combo-slot-header">
+                    <span className="deck-slot-num">{idx+1}</span>
+                    <span className="deck-slot-label">{complete ? comboLabel(slot) : "—"}</span>
+                    {complete && <span className="chip" style={{borderColor:SYS_COL[slot.system],color:SYS_COL[slot.system],background:`${SYS_COL[slot.system]}18`}}>{slot.system}</span>}
+                  </div>
+                  <ComboForm combo={slot} onChange={(f,v) => dispatch({type:"DECK_SLOT",id:deck.id,idx,f,v})}/>
+                </div>
+              );
+            })}
+          </div>
+          <div className="deck-bonus-controls">
+            <span className="deck-bonus-label">BONUS PUNTI</span>
+            <button className="deck-count-btn" onClick={() => dispatch({type:"DECK_BONUS",id:deck.id,delta:-1})}>−</button>
+            <span className="deck-count-val">{deck.bonus}</span>
+            <button className="deck-count-btn" onClick={() => dispatch({type:"DECK_BONUS",id:deck.id,delta:1})}>+</button>
+          </div>
+          <div className="deck-completeness">
+            {deck.slots.map((sl,i) => {
+              const ok = isComplete(sl);
+              return <span key={i} className="deck-pill"
+                style={{background:ok?'rgba(34,197,94,0.1)':'var(--bg-bar)',
+                        borderColor:ok?'rgba(34,197,94,0.3)':'var(--border-card3)',
+                        color:ok?'#22c55e':'var(--text-ghost)'}}>
+                Combo {i+1} {ok?'✓':'○'}
+              </span>;
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -379,18 +465,18 @@ function StatsView({ myRecords, onDelRecord }) {
 function App() {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; } })();
   const [s, d] = useReducer(reducer, saved || INIT_STATE);
-  const [theme, setTheme]   = useState(() => localStorage.getItem('beytrackerx_theme') || 'dark');
+  const [theme, setTheme]     = useState(() => localStorage.getItem('beytrackerx_theme') || 'dark');
   const [logOppId, setLogOppId] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('beytrackerx_theme', theme);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = theme === 'light' ? '#f0f2f7' : '#090a0e';
+    if (meta) meta.content = theme==='light' ? '#f0f2f7' : '#090a0e';
   }, [theme]);
 
-  const toggleTheme = () => setTheme(p => p === 'dark' ? 'light' : 'dark');
-  const logOpp = logOppId ? (s.opponents || []).find(o => o.id === logOppId) : null;
+  const toggleTheme = () => setTheme(p => p==='dark' ? 'light' : 'dark');
+  const logOpp = logOppId ? (s.opponents||[]).find(o => o.id===logOppId) : null;
 
   return (
     <div className="app">
@@ -414,8 +500,6 @@ function App() {
 
       {/* DESKTOP SHELL */}
       <div className="desktop-shell">
-
-        {/* SIDEBAR — solo navigazione */}
         <aside className="sidebar">
           {BNAV_TABS.map(t => (
             <button key={t.v} onClick={() => d({type:"VIEW",v:t.v})}
@@ -429,7 +513,7 @@ function App() {
           <div className="content">
 
             {/* TRACKER */}
-            {s.view === "tracker" && (
+            {s.view==="tracker" && (
               <>
                 <div className="my-combo-card">
                   <div className="card-header">
@@ -437,20 +521,20 @@ function App() {
                     <span className="card-title">La Tua Combo</span>
                     {isComplete(s.myCombo) && <span className="ready-badge">✓ Pronta</span>}
                   </div>
-                  <ComboForm combo={s.myCombo} onChange={(f,v) => d({type:"MY",f,v})} />
+                  <ComboForm combo={s.myCombo} onChange={(f,v) => d({type:"MY",f,v})}/>
                 </div>
                 <div className="section-header">
                   <span className="section-title">Avversari</span>
-                  <button className="add-btn" onClick={() => d({type:"ADD"})}>+ Aggiungi</button>
+                  <button className="add-btn" onClick={() => d({type:"ADD_OPP"})}>+ Aggiungi</button>
                 </div>
                 {(s.opponents||[]).map(opp => (
                   <div key={opp.id} className="opp-card" style={{border:'1px solid var(--border-card2)'}}>
                     <div className="opp-body">
                       <div className="opp-top">
                         <span className="opp-label-name">{comboLabel(opp)}</span>
-                        <button className="del-btn" onClick={() => d({type:"DEL",id:opp.id})}>×</button>
+                        <button className="del-btn" onClick={() => d({type:"DEL_OPP",id:opp.id})}>×</button>
                       </div>
-                      <ComboForm combo={opp} onChange={(f,v) => d({type:"OPP",id:opp.id,f,v})} />
+                      <ComboForm combo={opp} onChange={(f,v) => d({type:"OPP",id:opp.id,f,v})}/>
                       <div className="opp-actions">
                         <button
                           className={`register-btn ${isComplete(s.myCombo)&&isComplete(opp)?'enabled':'disabled'}`}
@@ -464,25 +548,30 @@ function App() {
               </>
             )}
 
-            {/* STATS */}
-            {s.view === "stats" && (
-              <StatsView
-                myRecords={s.myRecords || []}
-                onDelRecord={label => d({type:"DEL_RECORD",label})}
-              />
+            {/* DECK */}
+            {s.view==="deck" && (
+              <DeckView decks={s.decks||[]} dispatch={d}/>
             )}
 
+            {/* STATS */}
+            {s.view==="stats" && (
+              <StatsView myRecords={s.myRecords||[]} onDelRecord={label => d({type:"DEL_RECORD",label})}/>
+            )}
+
+            {/* BITS */}
+            {s.view==="bits" && <BitsView/>}
+
             {/* BACKUP */}
-            {s.view === "backup" && (
+            {s.view==="backup" && (
               <div className="backup-page">
                 <div className="backup-card">
                   <div className="backup-card-title">📤 Esporta dati</div>
                   <div className="backup-card-desc">Scarica un file JSON con tutte le tue combo e partite.</div>
                   <button className="backup-btn export" onClick={() => {
-                    const blob = new Blob([JSON.stringify(s,null,2)],{type:'application/json'});
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = `beytrackerx_backup_${Date.now()}.json`;
+                    const blob=new Blob([JSON.stringify(s,null,2)],{type:'application/json'});
+                    const a=document.createElement('a');
+                    a.href=URL.createObjectURL(blob);
+                    a.download=`beytrackerx_backup_${Date.now()}.json`;
                     a.click();
                   }}>⬇ Esporta JSON</button>
                 </div>
@@ -515,7 +604,7 @@ function App() {
         </main>
       </div>
 
-      {/* BOTTOM NAV — solo navigazione, niente tema */}
+      {/* BOTTOM NAV — solo navigazione, niente toggle tema */}
       <nav className="bottom-nav">
         {BNAV_TABS.map(t => (
           <button key={t.v} onClick={() => d({type:"VIEW",v:t.v})}
@@ -529,13 +618,11 @@ function App() {
       {/* LOG MODAL */}
       {logOpp && (
         <LogModal
-          myCombo={s.myCombo}
-          opp={logOpp}
+          myCombo={s.myCombo} opp={logOpp}
           onLog={(r,finish) => d({type:"LOG",oppId:logOppId,r,finish})}
           onClose={() => setLogOppId(null)}
         />
       )}
-
     </div>
   );
 }
