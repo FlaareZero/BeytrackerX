@@ -25,7 +25,6 @@
 <script src="./icons.js"></script>
 
 <script>
-// Gestione immediata del tema
 (function(){
   const saved = localStorage.getItem('beytrackerx_theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -34,11 +33,8 @@
 })();
 </script>
 
-<style id="theme-css">
-</style>
-
-<style id="layout-css">
-</style>
+<style id="theme-css"></style>
+<style id="layout-css"></style>
 </head>
 <body>
 <div id="root"></div>
@@ -46,7 +42,7 @@
 <script type="text/babel">
 const { useState, useReducer, useEffect, useRef } = React;
 
-/* --- LOGICA DI SUPPORTO --- */
+/* ─── HELPERS ───────────────────────────────────────────────── */
 const comboLabel = c => {
   if (!c) return "—";
   if (c.system === "CX")
@@ -60,54 +56,122 @@ const isComplete = c => {
   return !!(c.blade && c.ratchet && c.bit);
 };
 const blankCombo = () => ({ system:"BX", blade:"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:"", bit:"" });
-const makeOpp = (id) => ({ id, wins:0, losses:0, draws:0, history:[], ...blankCombo() });
+const makeOpp    = (id) => ({ id, ...blankCombo() });
 
-const STORAGE_KEY = "beytrackerx_v2";
+// Aggiorna o crea un record per la mia combo nel registro storico.
+// La combo è identificata dal suo label testuale.
+function mergeMyRecord(records, combo, result, finish, oppLabel) {
+  const label = comboLabel(combo);
+  const entry = { id: Date.now(), result, finish: finish || "", opp: oppLabel, ts: new Date().toLocaleTimeString() };
+  const idx = records.findIndex(r => r.label === label);
+  if (idx >= 0) {
+    const r = records[idx];
+    const updated = {
+      ...r,
+      wins:    r.wins    + (result === 'win'  ? 1 : 0),
+      losses:  r.losses  + (result === 'loss' ? 1 : 0),
+      draws:   r.draws   + (result === 'draw' ? 1 : 0),
+      history: [entry, ...r.history],
+    };
+    return records.map((r, i) => i === idx ? updated : r);
+  }
+  return [...records, {
+    label,
+    combo: { ...combo },
+    wins:    result === 'win'  ? 1 : 0,
+    losses:  result === 'loss' ? 1 : 0,
+    draws:   result === 'draw' ? 1 : 0,
+    history: [entry],
+  }];
+}
 
-/* --- REDUCER --- */
+const STORAGE_KEY = "beytrackerx_v3";
+
+const INIT_STATE = {
+  myCombo:    blankCombo(),
+  opponents:  [makeOpp(1)],
+  nextId:     2,
+  view:       "tracker",
+  decks:      [],
+  nextDeckId: 1,
+  myRecords:  [],
+};
+
+/* ─── REDUCER ───────────────────────────────────────────────── */
 function reducer(s, a) {
   let next;
   switch (a.type) {
-    case "MY":     next = { ...s, myCombo: { ...s.myCombo, [a.f]: a.v } }; break;
-    case "OPP":    next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, [a.f]:a.v } : o) }; break;
-    case "ADD":    next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId: s.nextId+1 }; break;
-    case "DEL":    next = { ...s, opponents: s.opponents.filter(o => o.id !== a.id) }; break;
-    case "LOG":    next = { ...s, opponents: s.opponents.map(o => o.id === a.oppId ? { ...o, [a.r === 'win' ? 'wins' : a.r === 'loss' ? 'losses' : 'draws']: o[a.r === 'win' ? 'wins' : a.r === 'loss' ? 'losses' : 'draws'] + 1, history: [{id:Date.now(), result:a.r, finish:a.finish, ts:new Date().toLocaleTimeString()}, ...o.history] } : o) }; break;
-    case "VIEW":   next = { ...s, view: a.v }; break;
-    case "RESTORE": next = a.data; break;
-    case "FACTORY_RESET": next = { myCombo: blankCombo(), opponents: [makeOpp(1)], nextId: 2, view: "tracker", decks: [], nextDeckId: 1 }; break;
-    default: return s;
+    case "MY":
+      next = { ...s, myCombo: { ...s.myCombo, [a.f]: a.v } };
+      break;
+    case "OPP":
+      next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, [a.f]:a.v } : o) };
+      break;
+    case "ADD":
+      next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId: s.nextId+1 };
+      break;
+    case "DEL":
+      next = { ...s, opponents: s.opponents.filter(o => o.id !== a.id) };
+      break;
+    case "LOG": {
+      const opp = s.opponents.find(o => o.id === a.oppId);
+      const oppLabel = comboLabel(opp);
+      const updatedRecords = mergeMyRecord(s.myRecords || [], s.myCombo, a.r, a.finish, oppLabel);
+      next = { ...s, myRecords: updatedRecords };
+      break;
+    }
+    case "DEL_RECORD":
+      next = { ...s, myRecords: (s.myRecords || []).filter(r => r.label !== a.label) };
+      break;
+    case "VIEW":
+      next = { ...s, view: a.v };
+      break;
+    case "RESTORE":
+      next = { ...INIT_STATE, ...a.data };
+      break;
+    case "FACTORY_RESET":
+      next = { ...INIT_STATE };
+      break;
+    default:
+      return s;
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }
 
-/* --- COMPONENTI UI --- */
+/* ─── SEL ───────────────────────────────────────────────────── */
 function Sel({ val, onChange, opts, ph, accent }) {
   return (
-    <select value={val} onChange={e => onChange(e.target.value)} style={{ background:"var(--bg-select)", color:"var(--text-primary)", border:`1px solid ${accent || 'var(--border-select)'}`, borderRadius:6, padding:6, flex:1, fontSize:12 }}>
+    <select value={val} onChange={e => onChange(e.target.value)}
+      style={{ background:"var(--bg-select)", color:"var(--text-primary)",
+               border:`1px solid ${accent || 'var(--border-select)'}`,
+               borderRadius:6, padding:6, flex:1, fontSize:12 }}>
       <option value="">{ph}</option>
       {opts.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
   );
 }
 
+/* ─── COMBO FORM ────────────────────────────────────────────── */
 function ComboForm({ combo, onChange }) {
   const ac = SYS_COL[combo.system];
-  // Qui usiamo le costanti BX_BLADES, UX_BLADES, etc. che vengono da data.js
   const blades = combo.system === "UX" ? UX_BLADES : combo.system === "CX" ? CX_BLADES : BX_BLADES;
   return (
     <div className="combo-form">
       <div className="sys-toggle">
         {["BX","UX","CX"].map(sys => (
-          <button key={sys} onClick={() => onChange("system", sys)} className="sys-btn" 
-            style={{ background: combo.system === sys ? SYS_COL[sys] : 'transparent', color: combo.system === sys ? '#fff' : 'var(--text-dimmer)', borderColor: SYS_COL[sys] }}>
+          <button key={sys} onClick={() => onChange("system", sys)} className="sys-btn"
+            style={{
+              background:  combo.system === sys ? SYS_COL[sys] : 'transparent',
+              color:       combo.system === sys ? '#fff' : 'var(--text-dimmer)',
+              borderColor: SYS_COL[sys]
+            }}>
             {sys}
           </button>
         ))}
       </div>
       <div className="row2">
-        <Sel val={combo.blade} onChange={v => onChange("blade", v)} opts={blades} ph="Blade" accent={ac} />
+        <Sel val={combo.blade}   onChange={v => onChange("blade", v)}   opts={blades}   ph="Blade"   accent={ac} />
         <Sel val={combo.ratchet} onChange={v => onChange("ratchet", v)} opts={RATCHETS} ph="Ratchet" accent={ac} />
       </div>
       <Sel val={combo.bit} onChange={v => onChange("bit", v)} opts={BIT_NAMES} ph="Bit" accent={ac} />
@@ -115,12 +179,208 @@ function ComboForm({ combo, onChange }) {
   );
 }
 
-/* --- APP PRINCIPALE --- */
+/* ─── LOG MODAL ─────────────────────────────────────────────── */
+function LogModal({ myCombo, opp, onLog, onClose }) {
+  const [finish, setFinish] = useState("");
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+        <div className="modal-handle" />
+        <div className="modal-subtitle">La tua combo</div>
+        <div className="modal-vs">{comboLabel(myCombo)}</div>
+        <div className="modal-subtitle">vs avversario</div>
+        <div className="modal-vs" style={{marginBottom:14}}>{comboLabel(opp)}</div>
+        <div className="modal-finish-label">Tipo di fine</div>
+        <div className="modal-finish-btns">
+          {FINISH_TYPES.map(f => (
+            <button key={f} className="finish-btn"
+              style={{
+                background:  finish===f ? 'rgba(0,180,255,0.15)' : 'var(--bg-btn-ghost)',
+                borderColor: finish===f ? '#00b4ff' : 'var(--border-btn)',
+                color:       finish===f ? '#00b4ff' : 'var(--text-secondary)'
+              }}
+              onClick={() => setFinish(f)}>{f}</button>
+          ))}
+        </div>
+        <div className="result-btns">
+          {[['win','VITTORIA','#22c55e'],['draw','PAREGGIO','#f59e0b'],['loss','SCONFITTA','#ef4444']].map(([r,label,col]) => (
+            <button key={r} className="result-btn"
+              style={{ background:`${col}14`, borderColor:col, color:col }}
+              onClick={() => { onLog(r, finish); onClose(); }}>{label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── STATS VIEW ────────────────────────────────────────────── */
+function StatsView({ myRecords, onDelRecord }) {
+  const [selected, setSelected] = useState(null);
+  const records = myRecords || [];
+
+  if (records.length === 0) {
+    return (
+      <div className="empty-msg">
+        Nessuna partita registrata.<br/>
+        Vai nel Tracker e logga qualche match!
+      </div>
+    );
+  }
+
+  // Vista dettaglio di una combo
+  if (selected) {
+    const rec = records.find(r => r.label === selected);
+    if (!rec) { setSelected(null); return null; }
+    const total = rec.wins + rec.losses + rec.draws;
+    const wr = total > 0 ? Math.round(rec.wins / total * 100) : 0;
+    return (
+      <div>
+        <button className="back-btn" onClick={() => setSelected(null)}>← Tutte le combo</button>
+        <div className="my-combo-card" style={{marginTop:10}}>
+          <div className="card-header">
+            <div className="card-accent-bar" />
+            <span className="card-title" style={{fontSize:11}}>{rec.label}</span>
+          </div>
+          <div className="total-card">
+            <div className="total-nums">
+              <div className="total-num">
+                <div className="total-num-val" style={{color:'#22c55e'}}>{rec.wins}</div>
+                <div className="total-num-label">VINTE</div>
+              </div>
+              <div className="total-num">
+                <div className="total-num-val" style={{color:'#ef4444'}}>{rec.losses}</div>
+                <div className="total-num-label">PERSE</div>
+              </div>
+              <div className="total-num">
+                <div className="total-num-val" style={{color:'#f59e0b'}}>{rec.draws}</div>
+                <div className="total-num-label">PARI</div>
+              </div>
+              <div className="total-wr">
+                <div className="total-wr-val">{wr}%</div>
+                <div className="total-wr-label">WIN RATE</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="section-header" style={{marginTop:16}}>
+          <span className="section-title">Match per avversario</span>
+        </div>
+
+        {/* Raggruppa la cronologia per avversario */}
+        {(() => {
+          const byOpp = {};
+          rec.history.forEach(h => {
+            const k = h.opp || "—";
+            if (!byOpp[k]) byOpp[k] = { opp:k, wins:0, losses:0, draws:0, matches:[] };
+            byOpp[k][h.result==='win'?'wins':h.result==='loss'?'losses':'draws']++;
+            byOpp[k].matches.push(h);
+          });
+          return Object.values(byOpp).map(g => {
+            const gt = g.wins + g.losses + g.draws;
+            return (
+              <div key={g.opp} className="stats-row" style={{flexDirection:'column', alignItems:'flex-start', gap:6}}>
+                <div style={{display:'flex', width:'100%', alignItems:'center', gap:8}}>
+                  <span style={{flex:1, fontSize:12, fontWeight:800, color:'var(--text-card)'}}>{g.opp}</span>
+                  <span style={{fontSize:11, color:'#22c55e'}}>{g.wins}V</span>
+                  <span style={{fontSize:11, color:'#ef4444'}}>{g.losses}P</span>
+                  <span style={{fontSize:11, color:'#f59e0b'}}>{g.draws}=</span>
+                  <span className="match-count">{gt} match</span>
+                </div>
+                {g.matches.map(h => (
+                  <div key={h.id} style={{display:'flex', gap:8, width:'100%', paddingLeft:4, borderLeft:'2px solid var(--border-card3)'}}>
+                    <span style={{
+                      fontSize:10, fontWeight:800, minWidth:50,
+                      color: h.result==='win'?'#22c55e':h.result==='loss'?'#ef4444':'#f59e0b'
+                    }}>{h.result==='win'?'VINTA':h.result==='loss'?'PERSA':'PARI'}</span>
+                    <span style={{fontSize:10, color:'var(--text-dimmer)', flex:1}}>{h.finish || '—'}</span>
+                    <span style={{fontSize:10, color:'var(--text-ultra)'}}>{h.ts}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          });
+        })()}
+
+        <button className="backup-btn danger" style={{marginTop:16}}
+          onClick={() => { if(confirm('Eliminare questa combo e tutti i suoi dati?')) { onDelRecord(rec.label); setSelected(null); }}}>
+          🗑 Elimina questa combo
+        </button>
+      </div>
+    );
+  }
+
+  // Lista di tutte le combo
+  const sorted = [...records].sort((a,b) => {
+    const ta = a.wins+a.losses+a.draws, tb = b.wins+b.losses+b.draws;
+    const wa = ta > 0 ? a.wins/ta : 0, wb = tb > 0 ? b.wins/tb : 0;
+    return wb - wa;
+  });
+
+  const totalW = records.reduce((s,r) => s+r.wins,   0);
+  const totalL = records.reduce((s,r) => s+r.losses,  0);
+  const totalD = records.reduce((s,r) => s+r.draws,   0);
+  const totalM = totalW + totalL + totalD;
+
+  return (
+    <div>
+      {/* Riepilogo globale */}
+      <div className="total-card" style={{marginBottom:14}}>
+        <div className="total-title">Riepilogo globale · {records.length} combo</div>
+        <div className="total-nums">
+          <div className="total-num">
+            <div className="total-num-val" style={{color:'#22c55e'}}>{totalW}</div>
+            <div className="total-num-label">VINTE</div>
+          </div>
+          <div className="total-num">
+            <div className="total-num-val" style={{color:'#ef4444'}}>{totalL}</div>
+            <div className="total-num-label">PERSE</div>
+          </div>
+          <div className="total-num">
+            <div className="total-num-val" style={{color:'#f59e0b'}}>{totalD}</div>
+            <div className="total-num-label">PARI</div>
+          </div>
+          <div className="total-wr">
+            <div className="total-wr-val">{totalM > 0 ? Math.round(totalW/totalM*100) : 0}%</div>
+            <div className="total-wr-label">WIN RATE</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bits-db-title">Le tue combo testate</div>
+      {sorted.map((rec, i) => {
+        const total = rec.wins + rec.losses + rec.draws;
+        const wr = total > 0 ? Math.round(rec.wins/total*100) : 0;
+        const rankColor = i===0?'#f59e0b':i===1?'#a8a8b8':i===2?'#cd7f32':'var(--text-ghost)';
+        return (
+          <div key={rec.label} className="stats-row" style={{cursor:'pointer'}} onClick={() => setSelected(rec.label)}>
+            <div className="stats-rank" style={{color:rankColor}}>#{i+1}</div>
+            <div className="stats-info">
+              <div style={{fontSize:12, fontWeight:800, color:'var(--text-card)', marginBottom:3}}>{rec.label}</div>
+              <div className="chips-row">
+                <span style={{fontSize:11, color:'#22c55e'}}>{rec.wins}V</span>
+                <span style={{fontSize:11, color:'#ef4444'}}>{rec.losses}P</span>
+                <span style={{fontSize:11, color:'#f59e0b'}}>{rec.draws}=</span>
+                <span className="match-count">· {total} match</span>
+              </div>
+            </div>
+            <div className="stats-wp" style={{color:wr>=60?'#22c55e':wr>=40?'#f59e0b':'#ef4444'}}>
+              {wr}%
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── APP ───────────────────────────────────────────────────── */
 function App() {
-  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-  const [s, d] = useReducer(reducer, saved || { myCombo: blankCombo(), opponents: [makeOpp(1)], nextId: 2, view: "tracker", decks: [], nextDeckId: 1 });
-  const [theme, setTheme] = useState(() => localStorage.getItem('beytrackerx_theme') || 'dark');
-  const [log, setLog] = useState(null);
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch { return null; } })();
+  const [s, d] = useReducer(reducer, saved || INIT_STATE);
+  const [theme, setTheme]   = useState(() => localStorage.getItem('beytrackerx_theme') || 'dark');
+  const [logOppId, setLogOppId] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -129,10 +389,13 @@ function App() {
     if (meta) meta.content = theme === 'light' ? '#f0f2f7' : '#090a0e';
   }, [theme]);
 
-  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  const toggleTheme = () => setTheme(p => p === 'dark' ? 'light' : 'dark');
+  const logOpp = logOppId ? (s.opponents || []).find(o => o.id === logOppId) : null;
 
   return (
     <div className="app">
+
+      {/* HEADER */}
       <header className="header">
         <div className="flex-center">
           <div className="logo-spin">⚡</div>
@@ -140,69 +403,139 @@ function App() {
         </div>
         <nav className="nav">
           {BNAV_TABS.map(t => (
-            <button key={t.v} onClick={() => d({type:"VIEW", v:t.v})} className={`nav-btn ${s.view === t.v ? 'active' : 'inactive'}`}>{t.label}</button>
+            <button key={t.v} onClick={() => d({type:"VIEW",v:t.v})}
+              className={`nav-btn ${s.view===t.v?'active':'inactive'}`}>{t.label}</button>
           ))}
         </nav>
         <button onClick={toggleTheme} className="theme-toggle-btn">
-          {theme === 'dark' ? '☀️' : '🌙'}
+          {theme==='dark'?'☀️':'🌙'}
         </button>
       </header>
 
+      {/* DESKTOP SHELL */}
       <div className="desktop-shell">
+
+        {/* SIDEBAR — solo navigazione */}
         <aside className="sidebar">
           {BNAV_TABS.map(t => (
-            <button key={t.v} onClick={() => d({type:"VIEW", v:t.v})} className={`sidebar-btn ${s.view === t.v ? 'active' : ''}`}>
-              {t.icon} {t.label}
+            <button key={t.v} onClick={() => d({type:"VIEW",v:t.v})}
+              className={`sidebar-btn ${s.view===t.v?'active':'inactive'}`}>
+              <span className="sidebar-icon">{t.icon}</span> {t.label}
             </button>
           ))}
-          <button onClick={toggleTheme} className="sidebar-btn" style={{marginTop:'auto'}}>
-            {theme === 'dark' ? '☀️ Tema Chiaro' : '🌙 Tema Scuro'}
-          </button>
         </aside>
 
         <main className="desktop-main">
           <div className="content">
+
+            {/* TRACKER */}
             {s.view === "tracker" && (
               <>
                 <div className="my-combo-card">
-                  <div className="card-header"><div className="card-accent-bar" /><span className="card-title">La Tua Combo</span></div>
-                  <ComboForm combo={s.myCombo} onChange={(f, v) => d({type:"MY", f, v})} />
+                  <div className="card-header">
+                    <div className="card-accent-bar"/>
+                    <span className="card-title">La Tua Combo</span>
+                    {isComplete(s.myCombo) && <span className="ready-badge">✓ Pronta</span>}
+                  </div>
+                  <ComboForm combo={s.myCombo} onChange={(f,v) => d({type:"MY",f,v})} />
                 </div>
                 <div className="section-header">
                   <span className="section-title">Avversari</span>
                   <button className="add-btn" onClick={() => d({type:"ADD"})}>+ Aggiungi</button>
                 </div>
-                {s.opponents.map(opp => (
-                  <div key={opp.id} className="opp-card">
+                {(s.opponents||[]).map(opp => (
+                  <div key={opp.id} className="opp-card" style={{border:'1px solid var(--border-card2)'}}>
                     <div className="opp-body">
                       <div className="opp-top">
                         <span className="opp-label-name">{comboLabel(opp)}</span>
-                        <button className="del-btn" onClick={() => d({type:"DEL", id:opp.id})}>×</button>
+                        <button className="del-btn" onClick={() => d({type:"DEL",id:opp.id})}>×</button>
                       </div>
-                      <ComboForm combo={opp} onChange={(f, v) => d({type:"OPP", id:opp.id, f, v})} />
+                      <ComboForm combo={opp} onChange={(f,v) => d({type:"OPP",id:opp.id,f,v})} />
                       <div className="opp-actions">
-                        <button className={`register-btn ${isComplete(s.myCombo) && isComplete(opp) ? 'enabled' : 'disabled'}`} onClick={() => setLog(opp.id)}>⚔ Log</button>
+                        <button
+                          className={`register-btn ${isComplete(s.myCombo)&&isComplete(opp)?'enabled':'disabled'}`}
+                          onClick={() => isComplete(s.myCombo)&&isComplete(opp)&&setLogOppId(opp.id)}>
+                          ⚔ Log
+                        </button>
                       </div>
                     </div>
                   </div>
                 ))}
               </>
             )}
-            {/* ... Altre viste (Stats, Backup) ... */}
+
+            {/* STATS */}
+            {s.view === "stats" && (
+              <StatsView
+                myRecords={s.myRecords || []}
+                onDelRecord={label => d({type:"DEL_RECORD",label})}
+              />
+            )}
+
+            {/* BACKUP */}
+            {s.view === "backup" && (
+              <div className="backup-page">
+                <div className="backup-card">
+                  <div className="backup-card-title">📤 Esporta dati</div>
+                  <div className="backup-card-desc">Scarica un file JSON con tutte le tue combo e partite.</div>
+                  <button className="backup-btn export" onClick={() => {
+                    const blob = new Blob([JSON.stringify(s,null,2)],{type:'application/json'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `beytrackerx_backup_${Date.now()}.json`;
+                    a.click();
+                  }}>⬇ Esporta JSON</button>
+                </div>
+                <div className="backup-card">
+                  <div className="backup-card-title">📥 Importa dati</div>
+                  <div className="backup-card-desc">Carica un backup JSON precedentemente esportato.</div>
+                  <input type="file" accept=".json" className="file-input-hidden" id="import-file"
+                    onChange={e => {
+                      const f=e.target.files[0]; if(!f) return;
+                      const r=new FileReader();
+                      r.onload=ev=>{ try{ d({type:"RESTORE",data:JSON.parse(ev.target.result)}); }catch{} };
+                      r.readAsText(f);
+                    }}/>
+                  <button className="backup-btn import" onClick={()=>document.getElementById('import-file').click()}>
+                    ⬆ Importa JSON
+                  </button>
+                </div>
+                <div className="backup-card">
+                  <div className="backup-card-title">⚠️ Reset</div>
+                  <div className="backup-card-desc">Cancella tutti i dati e ricomincia da zero.</div>
+                  <button className="backup-btn danger"
+                    onClick={()=>{ if(confirm('Sei sicuro? Tutti i dati verranno eliminati.')) d({type:"FACTORY_RESET"}); }}>
+                    🗑 Factory Reset
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
         </main>
       </div>
 
+      {/* BOTTOM NAV — solo navigazione, niente tema */}
       <nav className="bottom-nav">
         {BNAV_TABS.map(t => (
-          <button key={t.v} onClick={() => d({type:"VIEW", v:t.v})} className={`bottom-nav-btn ${s.view === t.v ? 'active' : ''}`}>
-            {t.icon} <span>{t.label}</span>
+          <button key={t.v} onClick={() => d({type:"VIEW",v:t.v})}
+            className={`bottom-nav-btn ${s.view===t.v?'active':'inactive'}`}>
+            <span className="bnav-icon">{t.icon}</span>
+            <span>{t.label}</span>
           </button>
         ))}
-        <button onClick={toggleTheme} className="bottom-nav-btn">
-          {theme === 'dark' ? '☀️' : '🌙'} <span>Tema</span>
-        </button>
       </nav>
+
+      {/* LOG MODAL */}
+      {logOpp && (
+        <LogModal
+          myCombo={s.myCombo}
+          opp={logOpp}
+          onLog={(r,finish) => d({type:"LOG",oppId:logOppId,r,finish})}
+          onClose={() => setLogOppId(null)}
+        />
+      )}
+
     </div>
   );
 }
