@@ -400,6 +400,2372 @@ function Chip({ label, color }) {
   return <span className="chip" style={{ color, background:`${color}18`, borderColor:`${color}44` }}>{label}</span>;
 }
 
+function ResultIcon({ result }) {
+  const map = { win:["▲ WIN","#22c55e"], loss:["▼ LOSS","#ef4444"], draw:["= PARI","#f59e0b"] };
+  const [label, color] = map[result] || ["?","#888"];
+  return <span style={{ color, fontWeight:800, fontSize:11 }}>{label}</span>;
+}
+
+
+function StatsPage({ opponents }) {
+  const active = [...opponents]
+    .filter(o => o.wins + o.losses + o.draws > 0)
+    .sort((a, b) => (b.wins/(b.wins+b.losses+b.draws)) - (a.wins/(a.wins+a.losses+a.draws)));
+  const tw = opponents.reduce((s,o) => s+o.wins, 0);
+  const tl = opponents.reduce((s,o) => s+o.losses, 0);
+  const td = opponents.reduce((s,o) => s+o.draws, 0);
+  const tt = tw + tl + td;
+  const rankColors = ["#22c55e","#aaa","#444"];
+
+  return (
+    <div>
+      {active.length === 0 && <div className="empty-msg">Registra qualche risultato nel Tracker.</div>}
+      {active.map((o, rank) => {
+        const t = o.wins + o.losses + o.draws;
+        const wp = Math.round(o.wins / t * 100);
+        return (
+          <div key={o.id} className="stats-row">
+            <div className="stats-rank" style={{ color: rankColors[rank] || "#444" }}>#{rank+1}</div>
+            <div className="stats-info">
+              <div className="stats-combo-row">
+                <SysBadge sys={o.system} />
+                <span style={{ fontWeight:700, fontSize:12 }}>{comboLabel(o)}</span>
+              </div>
+              <WBar wins={o.wins} losses={o.losses} draws={o.draws} />
+              <div className="chips-row">
+                <Chip label={`${o.wins}W`} color="#22c55e" />
+                <Chip label={`${o.losses}L`} color="#ef4444" />
+                <Chip label={`${o.draws}P`} color="#f59e0b" />
+                <span className="match-count">{t} match</span>
+              </div>
+            </div>
+            <div className="stats-wp" style={{ color: wp>=60?"#22c55e":wp>=40?"#f59e0b":"#ef4444" }}>{wp}%</div>
+          </div>
+        );
+      })}
+      {tt > 0 && (
+        <div className="total-card">
+          <div className="total-title">Record Totale</div>
+          <div className="total-nums">
+            {[["VINTE",tw,"#22c55e"],["PERSE",tl,"#ef4444"],["PARI",td,"#f59e0b"]].map(([l,v,c]) => (
+              <div key={l} className="total-num">
+                <div className="total-num-val" style={{ color:c }}>{v}</div>
+                <div className="total-num-label">{l}</div>
+              </div>
+            ))}
+            <div className="total-wr">
+              <div className="total-wr-val">{Math.round(tw/tt*100)}%</div>
+              <div className="total-wr-label">WIN RATE</div>
+            </div>
+          </div>
+          <WBar wins={tw} losses={tl} draws={td} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ DECK  —  DeckSlot, DeckCard, DeckPage
+// ════════════════════════════════════════════════════════════════
+function DeckSlot({ combo, deckId, slot, idx, dispatch }) {
+  const ok = isComplete(combo);
+  const ac = SYS_COL[combo.system] || "#888";
+  const [open, setOpen] = useState(false);
+  const onChange = (f, v) => dispatch({ type:"DECK_COMBO", deckId, slot, idx, f, v });
+  return (
+    <div className="deck-combo-slot">
+      <div className="deck-combo-slot-header">
+        <span className="deck-slot-num">{slot === "main" ? idx+1 : `B${idx+1}`}</span>
+        <span className="deck-slot-label" style={{ color: ok ? "#ccc" : "#333" }}>
+          {ok ? (
+            <span style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <SysBadge sys={combo.system} />
+              {comboLabel(combo)}
+            </span>
+          ) : <span style={{ color:"var(--text-ghost)" }}>Non configurata</span>}
+        </span>
+        <button onClick={() => setOpen(o=>!o)} style={{
+          background: open ? `${ac}18` : "rgba(255,255,255,0.03)",
+          border: `1px solid ${open ? ac+"44" : "rgba(255,255,255,0.06)"}`,
+          color: open ? ac : "#444", borderRadius:5, padding:"2px 8px", fontSize:9, cursor:"pointer", fontWeight:700,
+        }}>{open ? "▲" : "▼"}</button>
+      </div>
+      {open && <ComboForm combo={combo} onChange={onChange} accent={ac} />}
+    </div>
+  );
+}
+
+function DeckCard({ deck, dispatch }) {
+  const mainComplete = deck.combos.filter(isComplete).length;
+  const bonusComplete = deck.bonus.filter(isComplete).length;
+  const total = 3 + deck.bonus.length;
+  const done = mainComplete + bonusComplete;
+  return (
+    <div className="deck-card">
+      <div className="deck-header">
+        <input
+          className="deck-name-input"
+          value={deck.name}
+          onChange={e => dispatch({ type:"DECK_NAME", id:deck.id, v:e.target.value.slice(0,80) })}
+          placeholder="Nome deck..."
+        />
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <span style={{ fontSize:10, color: done===total ? "#22c55e" : "#555", fontWeight:700 }}>{done}/{total}</span>
+          <button className="deck-del-btn" onClick={() => dispatch({ type:"DECK_DEL", id:deck.id })}>×</button>
+        </div>
+      </div>
+
+      {/* Completeness pills */}
+      <div className="deck-completeness">
+        {deck.combos.map((cb, i) => {
+          const ok = isComplete(cb);
+          return <span key={i} className="deck-pill" style={{
+            background: ok ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.03)",
+            borderColor: ok ? "#22c55e44" : "rgba(255,255,255,0.06)",
+            color: ok ? "#22c55e" : "#333",
+          }}>{ok ? `✓ C${i+1}` : `C${i+1}`}</span>;
+        })}
+        {deck.bonus.map((cb, i) => {
+          const ok = isComplete(cb);
+          return <span key={i} className="deck-pill" style={{
+            background: ok ? "rgba(168,85,247,0.1)" : "rgba(255,255,255,0.03)",
+            borderColor: ok ? "#a855f744" : "rgba(255,255,255,0.06)",
+            color: ok ? "#a855f7" : "#333",
+          }}>{ok ? `✓ B${i+1}` : `B${i+1}`}</span>;
+        })}
+      </div>
+
+      {/* Main combos */}
+      <div className="deck-section-label">Combo principali (3)</div>
+      <div className="deck-combos">
+        {deck.combos.map((cb, i) => (
+          <DeckSlot key={i} combo={cb} deckId={deck.id} slot="main" idx={i} dispatch={dispatch} />
+        ))}
+      </div>
+
+      {/* Bonus combos */}
+      <div className="deck-section-label" style={{ display:"flex", alignItems:"center" }}>
+        <span style={{ flex:1 }}>Combo bonus</span>
+      </div>
+      <div className="deck-bonus-controls">
+        <span className="deck-bonus-label">Numero combo bonus</span>
+        <button className="deck-count-btn" onClick={() => dispatch({ type:"DECK_BONUS_COUNT", id:deck.id, v:deck.bonusCount-1 })}>−</button>
+        <span className="deck-count-val">{deck.bonusCount}</span>
+        <button className="deck-count-btn" onClick={() => dispatch({ type:"DECK_BONUS_COUNT", id:deck.id, v:deck.bonusCount+1 })}>+</button>
+      </div>
+      <div className="deck-combos">
+        {deck.bonus.map((cb, i) => (
+          <DeckSlot key={i} combo={cb} deckId={deck.id} slot="bonus" idx={i} dispatch={dispatch} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeckPage({ decks, dispatch }) {
+  return (
+    <div>
+      <div className="section-header">
+        <span className="section-title">I Tuoi Deck · {decks.length}</span>
+        <button className="add-btn" onClick={() => dispatch({ type:"DECK_ADD" })}>+ Nuovo Deck</button>
+      </div>
+      {decks.length === 0 && (
+        <div className="empty-msg" style={{ marginTop:30 }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🃏</div>
+          <div>Nessun deck ancora.</div>
+          <div style={{ fontSize:11, color:"var(--text-ghost)", marginTop:4 }}>Crea un deck per organizzare le tue combo da torneo.</div>
+        </div>
+      )}
+      {decks.map(dk => <DeckCard key={dk.id} deck={dk} dispatch={dispatch} />)}
+    </div>
+  );
+}
+
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ BACKUP  —  BackupPage
+// ════════════════════════════════════════════════════════════════
+const BACKUP_VERSION = 1;
+
+function BackupPage({ state, dispatch }) {
+  const [toast, setToast] = useState(null);
+  const fileInputRef = React.useRef(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const getBackupData = () => ({
+    _version: BACKUP_VERSION,
+    _app: "BeyTracker X",
+    _date: new Date().toISOString(),
+    myCombo:    state.myCombo,
+    opponents:  state.opponents,
+    nextId:     state.nextId,
+    decks:      state.decks,
+    nextDeckId: state.nextDeckId,
+  });
+
+  const handleExport = async () => {
+    const data = getBackupData();
+    const json = JSON.stringify(data, null, 2);
+    const dateStr = new Date().toISOString().slice(0,10);
+    const filename = `beytrackerx_backup_${dateStr}.json`;
+
+    // Try Web Share API with file (Android + iOS 15+)
+    if (navigator.canShare) {
+      const file = new File([json], filename, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "BeyTracker X Backup",
+            text: `Backup del ${dateStr}`,
+            files: [file],
+          });
+          showToast("✓ Condiviso!");
+          return;
+        } catch(e) {
+          if (e.name !== "AbortError") console.warn("Share failed:", e);
+          else return; // user cancelled
+        }
+      }
+    }
+    // Fallback: download
+    const blob = new Blob([json], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("✓ File scaricato!");
+  };
+
+  const SAFE_KEYS = ["_version","_app","_date","myCombo","opponents","nextId","decks","nextDeckId"];
+  const sanitizeCombo = (cb) => {
+    if (!cb || typeof cb !== "object") return blankCombo();
+    return {
+      system:     ["BX","UX","CX"].includes(cb.system) ? cb.system : "BX",
+      blade:      typeof cb.blade === "string"      ? cb.blade.slice(0,80)      : "",
+      lockChip:   typeof cb.lockChip === "string"   ? cb.lockChip.slice(0,80)   : "",
+      mainBlade:  typeof cb.mainBlade === "string"  ? cb.mainBlade.slice(0,80)  : "",
+      assistBlade:typeof cb.assistBlade === "string"? cb.assistBlade.slice(0,80): "",
+      ratchet:    typeof cb.ratchet === "string"    ? cb.ratchet.slice(0,20)    : "",
+      bit:        typeof cb.bit === "string"        ? cb.bit.slice(0,80)        : "",
+    };
+  };
+  const sanitizeOpp = (o) => {
+    if (!o || typeof o !== "object") return null;
+    return {
+      id:      typeof o.id === "number" ? o.id : 0,
+      wins:    typeof o.wins === "number"   ? Math.max(0, Math.floor(o.wins))   : 0,
+      losses:  typeof o.losses === "number" ? Math.max(0, Math.floor(o.losses)) : 0,
+      draws:   typeof o.draws === "number"  ? Math.max(0, Math.floor(o.draws))  : 0,
+      history: Array.isArray(o.history) ? o.history.slice(0,200).map(h => ({
+        id:     typeof h.id === "number" ? h.id : Date.now(),
+        result: ["win","loss","draw"].includes(h.result) ? h.result : "draw",
+        finish: typeof h.finish === "string" ? h.finish.slice(0,50) : "",
+        ts:     typeof h.ts === "string" ? h.ts.slice(0,10) : "",
+      })) : [],
+      ...sanitizeCombo(o),
+    };
+  };
+  const sanitizeBackup = (raw) => {
+    if (!raw || typeof raw !== "object") throw new Error("Struttura non valida");
+    if (raw._app !== "BeyTracker X") throw new Error("File non è un backup BeyTracker X");
+    if (raw._version !== 1) throw new Error(`Versione backup non supportata: ${raw._version}`);
+    const opps = Array.isArray(raw.opponents) ? raw.opponents.slice(0,100).map(sanitizeOpp).filter(Boolean) : [];
+    const decks = Array.isArray(raw.decks) ? raw.decks.slice(0,50).map(dk => {
+      if (!dk || typeof dk !== "object") return null;
+      return {
+        id:         typeof dk.id === "number" ? dk.id : 0,
+        name:       typeof dk.name === "string" ? dk.name.slice(0,100) : "Deck",
+        bonusCount: typeof dk.bonusCount === "number" ? Math.max(1,Math.min(6,dk.bonusCount)) : 1,
+        combos:     Array.isArray(dk.combos) ? dk.combos.slice(0,3).map(sanitizeCombo) : [blankCombo(),blankCombo(),blankCombo()],
+        bonus:      Array.isArray(dk.bonus)  ? dk.bonus.slice(0,6).map(sanitizeCombo)  : [blankCombo()],
+      };
+    }).filter(Boolean) : [];
+    return {
+      myCombo:    sanitizeCombo(raw.myCombo),
+      opponents:  opps,
+      nextId:     typeof raw.nextId === "number" ? raw.nextId : opps.length + 1,
+      decks,
+      nextDeckId: typeof raw.nextDeckId === "number" ? raw.nextDeckId : decks.length + 1,
+    };
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast("✗ File troppo grande (max 5MB)"); return; }
+    if (!file.name.endsWith(".json")) { showToast("✗ Formato non supportato — usa un file .json"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = JSON.parse(ev.target.result);
+        const data = sanitizeBackup(raw);
+        dispatch({ type: "RESTORE", data });
+        showToast("✓ Backup ripristinato!");
+      } catch(err) {
+        showToast(`✗ ${err.message || "File non valido"}`);
+      }
+    };
+    reader.onerror = () => showToast("✗ Errore lettura file");
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleReset = () => {
+    if (!confirm("Sei sicuro? Tutti i dati verranno cancellati.")) return;
+    dispatch({ type: "FACTORY_RESET" });
+    showToast("✓ Reset completato");
+  };
+
+  const totalMatches = state.opponents.reduce((s,o) => s + o.wins + o.losses + o.draws, 0);
+  const totalDecks   = state.decks.length;
+  const totalOpps    = state.opponents.length;
+
+  return (
+    <div className="backup-page">
+      {/* Stats snapshot */}
+      <div className="backup-card">
+        <div className="backup-card-title" style={{ color:"#00b4ff" }}>📊 Dati Salvati</div>
+        <div style={{ marginTop:8 }}>
+          {[
+            ["Avversari tracciati", totalOpps],
+            ["Match registrati",    totalMatches],
+            ["Deck creati",         totalDecks],
+            ["Ultimo salvataggio",  (() => { try { const s = localStorage.getItem("beytrackerx_v2"); return s ? new Date(JSON.parse(s)._savedAt||Date.now()).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—"; } catch(_){ return "—"; } })()],
+          ].map(([l,v]) => (
+            <div key={l} className="backup-stat">
+              <span style={{ color:"#666" }}>{l}</span>
+              <span className="backup-stat-val">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Export */}
+      <div className="backup-card">
+        <div className="backup-card-title" style={{ color:"#22c55e" }}>⬆ Esporta Backup</div>
+        <div className="backup-card-desc">
+          Salva tutti i tuoi dati in un file <strong style={{color:"#aaa"}}>.json</strong>.
+          Puoi condividerlo su <strong style={{color:"#aaa"}}>Telegram, WhatsApp, Mail, Google Drive, iCloud</strong> — qualsiasi app del tuo telefono.
+        </div>
+        <button className="backup-btn export" onClick={handleExport}>
+          📤 Esporta e Condividi
+        </button>
+      </div>
+
+      {/* Import */}
+      <div className="backup-card">
+        <div className="backup-card-title" style={{ color:"#a855f7" }}>⬇ Ripristina Backup</div>
+        <div className="backup-card-desc">
+          Seleziona un file <strong style={{color:"#aaa"}}>.json</strong> precedentemente esportato per ripristinare tutti i dati.<br/>
+          <span style={{color:"#ef4444", fontSize:10}}>⚠ I dati attuali verranno sostituiti.</span>
+        </div>
+        <button className="backup-btn import" onClick={() => fileInputRef.current.click()}>
+          📥 Seleziona File di Backup
+        </button>
+        <input
+          ref={fileInputRef}
+          className="file-input-hidden"
+          type="file"
+          accept=".json,application/json"
+          onChange={handleImport}
+        />
+      </div>
+
+      {/* Danger zone */}
+      <div className="backup-card" style={{ borderColor:"rgba(239,68,68,0.15)" }}>
+        <div className="backup-card-title" style={{ color:"#ef4444" }}>⚠ Zona Pericolosa</div>
+        <div className="backup-card-desc">
+          Cancella tutti i dati e ripristina l'app allo stato iniziale. Operazione irreversibile.
+        </div>
+        <button className="backup-btn danger" onClick={handleReset}>
+          🗑 Reset Completo
+        </button>
+      </div>
+
+      {toast && <div className="backup-toast">{toast}</div>}
+    </div>
+  );
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ PWA  —  useInstallPrompt
+// ════════════════════════════════════════════════════════════════
+function useInstallPrompt() {
+  const [prompt, setPrompt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+  React.useEffect(() => {
+    const handler = e => { e.preventDefault(); setPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setInstalled(true));
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const install = () => { if (prompt) { prompt.prompt(); prompt.userChoice.then(() => setPrompt(null)); } };
+  return { canInstall: !!prompt && !installed, install };
+}
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ DEVICE  —  useDevice, BNAV_TABS
+// ════════════════════════════════════════════════════════════════
+// BNAV_TABS, SIDEBAR_ICONS, THEME_ICONS, THEME_LABELS → icons.js (JS puro)
+
+function useDevice() {
+  const [touch, setTouch] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    const handler = e => setTouch(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return touch ? "touch" : "desktop";
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ TEMA  —  useTheme
+// ════════════════════════════════════════════════════════════════
+function useTheme() {
+  const getTheme = () => {
+    const saved = localStorage.getItem('beytrackerx_theme');
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  };
+  const [theme, setTheme] = useState(getTheme);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('beytrackerx_theme', theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = theme === 'light' ? '#f0f2f7' : '#090a0e';
+  }, [theme]);
+
+  // Sync with system changes (only if no manual override stored)
+  React.useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = e => {
+      if (!localStorage.getItem('beytrackerx_theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const toggle = () => setTheme(t => {
+    const next = t === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('beytrackerx_theme', next);
+    return next;
+  });
+
+  const reset = () => {
+    localStorage.removeItem('beytrackerx_theme');
+    const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    setTheme(sys);
+  };
+
+  return { theme, toggle, reset };
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ APP  —  Componente principale
+// ════════════════════════════════════════════════════════════════
+function App() {
+  const [s, d] = useReducer(reducer, initState);
+  const [log, setLog] = useState(null);
+  const [fin, setFin] = useState(FINISH_TYPES[0]);
+  const [exp, setExp] = useState(null);
+  const { myCombo, opponents, view } = s;
+  const myOK = isComplete(myCombo);
+  const { canInstall, install } = useInstallPrompt();
+  const device = useDevice();
+  const isTouch = device === "touch";
+  const { theme, toggle: toggleTheme } = useTheme();
+
+  const openLog = useCallback((oppId) => { setLog({ oppId }); setFin(FINISH_TYPES[0]); }, []);
+
+  // SIDEBAR_ICONS → icons.js
+
+  return (
+    <div className="app">
+      {/* Install Banner */}
+      {canInstall && (
+        <div onClick={install} style={{
+          background:"linear-gradient(90deg,rgba(0,180,255,0.12),rgba(168,85,247,0.1))",
+          borderBottom:"1px solid rgba(0,180,255,0.2)",
+          padding:"9px 15px", display:"flex", alignItems:"center", gap:10,
+          cursor:"pointer",
+        }}>
+          <div style={{width:28,height:28,borderRadius:8,background:"conic-gradient(from 0deg,#00b4ff,#a855f7,#f59e0b,#22c55e,#00b4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>⚡</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:800,color:"#ddd"}}>Installa BeyTracker X</div>
+            <div style={{fontSize:10,color:"#555"}}>Aggiungi alla home screen per usarla offline</div>
+          </div>
+          <div style={{fontSize:10,fontWeight:700,color:"#00b4ff",background:"rgba(0,180,255,0.1)",border:"1px solid rgba(0,180,255,0.25)",borderRadius:5,padding:"4px 9px"}}>Installa</div>
+        </div>
+      )}
+      {/* Header */}
+      <div className="header">
+        <div className="flex-center">
+          <div className="logo-spin">⚡</div>
+          <div>
+            <div className="logo-text">BEY<span style={{ color:"#00b4ff" }}>TRACKER</span><span style={{ color:"#a855f7", fontSize:11 }}> X</span></div>
+            <div className="logo-badges">
+              {["BX","UX","CX"].map(sys => <span key={sys} className="sys-badge" style={{ color:SYS_COL[sys], borderColor:`${SYS_COL[sys]}44`, background:`${SYS_COL[sys]}14` }}>{sys}</span>)}
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <button onClick={toggleTheme} title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"} style={{
+            background: "var(--bg-btn-ghost)", border: "1px solid var(--border-btn)",
+            borderRadius:6, width:30, height:30, display:"flex", alignItems:"center",
+            justifyContent:"center", cursor:"pointer", fontSize:14, flexShrink:0,
+            transition:"all 0.2s",
+          }}>{THEME_ICONS[theme]}</button>
+          <div className="nav">
+            {["tracker","deck","stats","bits","backup"].map(v => (
+              <button key={v} className={`nav-btn ${view===v?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v })}>{v}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop shell: sidebar + main */}
+      <div className="desktop-shell">
+
+        {/* Sidebar (desktop only via CSS) */}
+        <div className="sidebar">
+          <div className="sidebar-nav">
+            {["tracker","deck","stats","bits"].map(v => (
+              <button key={v} className={`sidebar-btn ${view===v?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v })}>
+                <span className="sidebar-icon">{SIDEBAR_ICONS[v]}</span>{v}
+              </button>
+            ))}
+            <div className="sidebar-divider"/>
+            <button className={`sidebar-btn ${view==="backup"?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v:"backup" })}>
+              <span className="sidebar-icon">💾</span>backup
+            </button>
+            <div className="sidebar-divider"/>
+            <button onClick={toggleTheme} className="sidebar-btn inactive" title="Cambia tema">
+              <span className="sidebar-icon">{THEME_ICONS[theme]}</span>
+              {THEME_LABELS[theme]}
+            </button>
+          </div>
+        </div>
+
+        {/* Main scrollable area */}
+        <div className="desktop-main">
+          <div className="content">
+        {/* My Combo — shown on touch for all non-deck/bits/backup views,
+             hidden on desktop when tracker is active (it's in the left col there) */}
+        {view !== "bits" && view !== "deck" && view !== "backup" && view !== "tracker" && (
+          <div className="my-combo-card">
+            <div className="card-header">
+              <div className="card-accent-bar" />
+              <span className="card-title">La Tua Combo</span>
+              {myOK && <span className="ready-badge">✓ Pronta</span>}
+            </div>
+            <ComboForm combo={myCombo} onChange={(f,v) => d({ type:"MY", f, v })} />
+            {myOK && (
+              <div className="combo-label">
+                <SysBadge sys={myCombo.system} />
+                {comboLabel(myCombo)}
+              </div>
+            )}
+          </div>
+        )}
+        {/* On touch, show my combo above tracker too */}
+        {view === "tracker" && isTouch && (
+          <div className="my-combo-card">
+            <div className="card-header">
+              <div className="card-accent-bar" />
+              <span className="card-title">La Tua Combo</span>
+              {myOK && <span className="ready-badge">✓ Pronta</span>}
+            </div>
+            <ComboForm combo={myCombo} onChange={(f,v) => d({ type:"MY", f, v })} />
+            {myOK && (
+              <div className="combo-label">
+                <SysBadge sys={myCombo.system} />
+                {comboLabel(myCombo)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tracker */}
+        {view === "tracker" && (
+          <div className="desktop-tracker-grid">
+            <div className="desktop-left-col">
+              {/* My Combo shown here on desktop inside grid */}
+              {!isTouch && view !== "bits" && view !== "deck" && view !== "backup" && (
+                <div className="my-combo-card">
+                  <div className="card-header">
+                    <div className="card-accent-bar" />
+                    <span className="card-title">La Tua Combo</span>
+                    {myOK && <span className="ready-badge">✓ Pronta</span>}
+                  </div>
+                  <ComboForm combo={myCombo} onChange={(f,v) => d({ type:"MY", f, v })} />
+                  {myOK && (
+                    <div className="combo-label">
+                      <SysBadge sys={myCombo.system} />
+                      {comboLabel(myCombo)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="desktop-right-col">
+            <div className="section-header">
+              <span className="section-title">Avversari · {opponents.length}</span>
+              <button className="add-btn" onClick={() => d({ type:"ADD" })}>+ Aggiungi</button>
+            </div>
+
+            {opponents.map((opp, idx) => {
+              const tot = opp.wins + opp.losses + opp.draws;
+              const wp  = tot > 0 ? Math.round(opp.wins / tot * 100) : null;
+              const ok  = isComplete(opp);
+              const isE = exp === opp.id;
+              const ac  = SYS_COL[opp.system] || "#888";
+              return (
+                <div key={opp.id} className="opp-card" style={{ border:`1px solid ${isE ? ac+"33" : "rgba(255,255,255,0.055)"}` }}>
+                  <div className="opp-body">
+                    <div className="opp-top">
+                      <span className="badge" style={{ color:ac, background:`${ac}14`, borderColor:`${ac}44`, fontWeight:800 }}>{idx<3?`M${idx+1}`:`#${idx+1}`} · {opp.system}</span>
+                      <div className="opp-label-name" style={{ color: ok?"#ccc":"#333" }}>
+                        {ok ? comboLabel(opp) : <span style={{ color:"var(--text-ghost)" }}>Non configurato</span>}
+                      </div>
+                      {idx < 3 && (
+                        <div className="preset-btns">
+                          {META_PRESETS.map((p,pi) => (
+                            <button key={pi} className="preset-btn" onClick={() => d({ type:"PRESET", id:opp.id, idx:pi })} title={p.label}>M{pi+1}</button>
+                          ))}
+                        </div>
+                      )}
+                      <button className="del-btn" onClick={() => d({ type:"DEL", id:opp.id })}>×</button>
+                    </div>
+
+                    <ComboForm combo={opp} onChange={(f,v) => d({ type:"OPP", id:opp.id, f, v })} accent={ac} />
+
+                    <div style={{ marginTop:8 }}>
+                      <WBar wins={opp.wins} losses={opp.losses} draws={opp.draws} />
+                      <div className="chips-row">
+                        <Chip label={`${opp.wins}W`} color="#22c55e" />
+                        <Chip label={`${opp.losses}L`} color="#ef4444" />
+                        <Chip label={`${opp.draws}P`} color="#f59e0b" />
+                        {wp !== null
+                          ? <span className="wp-display" style={{ color:wp>=50?"#22c55e":"#ef4444" }}>{wp}%</span>
+                          : <span style={{ marginLeft:"auto", fontSize:11, color:"var(--text-ghost)" }}>—</span>}
+                      </div>
+                    </div>
+
+                    <div className="opp-actions">
+                      <button
+                        className={`register-btn ${myOK&&ok?"enabled":"disabled"}`}
+                        disabled={!myOK || !ok}
+                        onClick={() => myOK && ok && openLog(opp.id)}
+                      >⚔ Registra</button>
+                      <button className="expand-btn" onClick={() => setExp(isE?null:opp.id)} style={{ color:isE?"#00b4ff":"#444" }}>{isE?"▲":"▼"}</button>
+                      {tot > 0 && <button className="reset-btn" onClick={() => d({ type:"RESET", id:opp.id })} title="Reset">↺</button>}
+                    </div>
+                  </div>
+
+                  {isE && (
+                    <div className="history-panel">
+                      <div className="history-title">Storico ({opp.history.length})</div>
+                      {opp.history.length === 0
+                        ? <div style={{ color:"var(--text-ghost)", fontSize:11 }}>Nessun match ancora.</div>
+                        : opp.history.slice(0, 8).map(h => (
+                          <div key={h.id} className="history-row">
+                            <ResultIcon result={h.result} />
+                            <span className="history-finish">{h.finish}</span>
+                            <span className="history-ts">{h.ts}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            </div>{/* desktop-right-col */}
+          </div>
+        )}
+
+        {view === "deck"  && <DeckPage decks={s.decks} dispatch={d} />}
+        {view === "stats" && <StatsPage opponents={opponents} />}
+        {view === "bits"   && <BitsPage />}
+        {view === "backup" && <BackupPage state={s} dispatch={d} />}
+          </div>{/* content */}
+        </div>{/* desktop-main */}
+      </div>{/* desktop-shell */}
+
+      {/* Bottom nav (touch only via CSS) */}
+      <nav className="bottom-nav">
+        {BNAV_TABS.map(t => (
+          <button key={t.v} className={`bottom-nav-btn ${view===t.v?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v:t.v })}>
+            <span className="bnav-icon">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Log Modal */}
+      {log && (() => {
+        const opp = opponents.find(o => o.id === log.oppId);
+        if (!opp) return null;
+        const tot = opp.wins + opp.losses + opp.draws;
+        const lastResult = opp.history[0];
+        return (
+          <div className="modal-overlay" onClick={() => setLog(null)}>
+            <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+              <div className="modal-handle" />
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
+                <div className="modal-subtitle">Risultato contro</div>
+                <button onClick={() => setLog(null)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"#666", borderRadius:6, padding:"3px 10px", fontSize:11, cursor:"pointer", fontWeight:700 }}>Fine ✓</button>
+              </div>
+              <div className="modal-vs">{comboLabel(opp)}</div>
+              <div style={{ display:"flex", gap:8, marginBottom:11, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8, padding:"7px 10px", alignItems:"center" }}>
+                <Chip label={`${opp.wins}W`} color="#22c55e" />
+                <Chip label={`${opp.losses}L`} color="#ef4444" />
+                <Chip label={`${opp.draws}P`} color="#f59e0b" />
+                <span style={{ color:"#3a3a3a", fontSize:10 }}>{tot} match</span>
+                {lastResult && <span style={{ marginLeft:"auto", fontSize:10, color:"#444" }}>Ultimo: <ResultIcon result={lastResult.result} /></span>}
+              </div>
+              <div className="modal-finish-label">Tipo di fine</div>
+              <div className="modal-finish-btns">
+                {FINISH_TYPES.map(f => (
+                  <button key={f} className="finish-btn" onClick={() => setFin(f)} style={{
+                    background: fin===f ? "rgba(0,180,255,0.12)" : "rgba(255,255,255,0.03)",
+                    borderColor: fin===f ? "#00b4ff44" : "rgba(255,255,255,0.06)",
+                    color: fin===f ? "#00b4ff" : "#555",
+                  }}>{f}</button>
+                ))}
+              </div>
+              <div className="result-btns">
+                {[["▲ WIN","win","#22c55e"],["= PARI","draw","#f59e0b"],["▼ LOSS","loss","#ef4444"]].map(([label,r,color]) => (
+                  <button key={r} className="result-btn" onClick={() => d({ type:"LOG", oppId:opp.id, r, finish:fin })}
+                    style={{ background:`${color}10`, borderColor:`${color}44`, color }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>BeyTracker X</title>
+
+<!-- PWA / Android -->
+<meta name="theme-color" content="#090a0e"/>
+<meta name="referrer" content="no-referrer"/>
+<meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+<meta http-equiv="X-Frame-Options" content="DENY"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="application-name" content="BeyTracker X"/>
+
+<!-- PWA / iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="BeyTracker X"/>
+
+<!-- Manifest inline via JS blob (single-file PWA) -->
+<script>
+(function(){
+  const manifest = {
+    name: "BeyTracker X",
+    short_name: "BeyTracker",
+    description: "Track your Beyblade X matchups and decks",
+    start_url: ".",
+    display: "standalone",
+    background_color: "#090a0e",
+    theme_color: "#090a0e",
+    orientation: "portrait-primary",
+    icons: [
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%23090a0e'/%3E%3Ccircle cx='256' cy='256' r='190' fill='none' stroke='url(%23g)' stroke-width='24'/%3E%3Ccircle cx='256' cy='256' r='130' fill='none' stroke='url(%23g2)' stroke-width='16'/%3E%3Ccircle cx='256' cy='256' r='40' fill='%2300b4ff'/%3E%3Ctext x='256' y='276' text-anchor='middle' font-size='52' font-family='Arial Black' fill='white'%3E%E2%9A%A1%3C/text%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2300b4ff'/%3E%3Cstop offset='50%25' stop-color='%23a855f7'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3ClinearGradient id='g2' x1='1' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f59e0b'/%3E%3Cstop offset='100%25' stop-color='%2322c55e'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E",
+        sizes: "any", type: "image/svg+xml", purpose: "any maskable"
+      }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement("link");
+  link.rel = "manifest"; link.href = url;
+  document.currentScript.parentNode.appendChild(link);
+})();
+</script>
+
+<!-- Service Worker (offline + install) -->
+<script>
+if ('serviceWorker' in navigator) {
+  const SW_CODE = `
+const CACHE = 'beytrackerx-v1';
+const ASSETS = [
+  'https://unpkg.com/react@18/umd/react.production.min.js',
+  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+  'https://unpkg.com/@babel/standalone/babel.min.js'
+];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+  );
+});
+  `;
+  const blob = new Blob([SW_CODE], {type: 'text/javascript'});
+  const url  = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url, {scope: '/'})
+    .catch(() => navigator.serviceWorker.register(url));
+}
+</script>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+// Apply saved theme immediately to avoid flash
+(function(){
+  const saved = localStorage.getItem('beytrackerx_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  // Update theme-color meta
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === 'light' ? '#f0f2f7' : '#090a0e';
+})();
+</script>
+
+<link rel="stylesheet" href="theme.css"/>
+<link rel="stylesheet" href="layout.css"/>
+</head>
+<body>
+<div id="root"></div>
+<script src="data.js"></script>
+<script src="icons.js"></script>
+<script type="text/babel">
+// ┌─────────────────────────────────────────────────────────────┐
+// │  BeyTracker X  —  indice sezioni                            │
+// │                                                             │
+// │   ← data.js         blade / ratchet / bit / preset / ui     │
+// │   ← icons.js        icone, BNAV_TABS, ResultIcon            │
+// │   ← theme.css       variabili dark/light + animazioni       │
+// │   ← layout.css      struttura, componenti, responsive       │
+// │                                                             │
+// │   1. HELPERS       comboLabel, blankCombo, type colors      │
+// │   2. PERSISTENZA   loadState, saveState (localStorage)      │
+// │   3. REDUCER       reducer puro — nessun side-effect        │
+// │   4. UI COMPONENTS Sel, Badge, Toggle, BitPicker,           │
+// │                    ComboForm, WBar, Chip                    │
+// │   5. PAGINE        BitsPage, StatsPage                      │
+// │   6. DECK          DeckSlot, DeckCard, DeckPage             │
+// │   7. BACKUP        BackupPage + sanitizzazione input        │
+// │   8. PWA           useInstallPrompt                         │
+// │   9. DEVICE        useDevice, BNAV_TABS                     │
+// │  10. TEMA          useTheme (dark / light / system)         │
+// │  11. APP           componente radice, layout, routing       │
+// └─────────────────────────────────────────────────────────────┘
+
+const { useState, useReducer, useCallback, useEffect, useRef } = React;
+
+
+
+// ▸ DATI  —  caricati da data.js (file esterno)
+
+// ════════════════════════════════════════════════════════════════
+// ▸ HELPERS  —  Funzioni di utilità
+// ════════════════════════════════════════════════════════════════
+const comboLabel = c => {
+  if (!c) return "—";
+  if (c.system === "CX")
+    return (c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit)
+      ? `${c.lockChip} ${c.mainBlade} / ${c.assistBlade} ${c.ratchet} ${c.bit}` : "CX incompleta";
+  return (c.blade && c.ratchet && c.bit) ? `${c.blade} ${c.ratchet} ${c.bit}` : "—";
+};
+const isComplete = c => {
+  if (!c) return false;
+  if (c.system === "CX") return !!(c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit);
+  return !!(c.blade && c.ratchet && c.bit);
+};
+const blankCombo = () => ({ system:"BX", blade:"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:"", bit:"" });
+const makeOpp = (id, p) => ({ id, wins:0, losses:0, draws:0, history:[], system:p?.system||"BX", blade:p?.blade||"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:p?.ratchet||"", bit:p?.bit||"" });
+const ts = () => new Date().toLocaleTimeString("it-IT", { hour:"2-digit", minute:"2-digit" });
+const makeBlankDeck = (id) => ({
+  id,
+  name: `Deck ${id}`,
+  combos: [blankCombo(), blankCombo(), blankCombo()],
+  bonus: [blankCombo()],
+  bonusCount: 1,
+});
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ PERSISTENZA  —  localStorage
+// ════════════════════════════════════════════════════════════════
+const STORAGE_KEY = "beytrackerx_v2";
+const saveState = state => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({...state, _savedAt: Date.now()})); } catch(_) {} };
+const loadState = () => { try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : null; } catch(_) { return null; } };
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ REDUCER  —  State management
+// ════════════════════════════════════════════════════════════════
+const initState = (() => {
+  const saved = loadState();
+  return {
+    myCombo:    saved?.myCombo    || blankCombo(),
+    opponents:  saved?.opponents  || [makeOpp(1,META_PRESETS[0]), makeOpp(2,META_PRESETS[1]), makeOpp(3,META_PRESETS[2])],
+    nextId:     saved?.nextId     || 4,
+    view:       saved?.view       || "tracker",
+    decks:      saved?.decks      || [],
+    nextDeckId: saved?.nextDeckId || 1,
+  };
+})();
+
+function reducer(s, a) {
+  let next;
+  switch (a.type) {
+    case "MY":     next = { ...s, myCombo: { ...s.myCombo, [a.f]: a.v } }; break;
+    case "OPP":    next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, [a.f]:a.v } : o) }; break;
+    case "ADD":    next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId: s.nextId+1 }; break;
+    case "DEL":    next = { ...s, opponents: s.opponents.filter(o => o.id !== a.id) }; break;
+    case "RESET":  next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, wins:0, losses:0, draws:0, history:[] } : o) }; break;
+    case "PRESET": {
+      const p = META_PRESETS[a.idx];
+      next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, system:p.system, blade:p.blade, ratchet:p.ratchet, bit:p.bit, lockChip:"", mainBlade:"", assistBlade:"" } : o) };
+      break;
+    }
+    case "LOG": {
+      next = { ...s, opponents: s.opponents.map(o => {
+        if (o.id !== a.oppId) return o;
+        return { ...o,
+          wins:   a.r==="win"  ? o.wins+1   : o.wins,
+          losses: a.r==="loss" ? o.losses+1 : o.losses,
+          draws:  a.r==="draw" ? o.draws+1  : o.draws,
+          history: [{ id:Date.now(), result:a.r, finish:a.finish, ts:ts() }, ...o.history],
+        };
+      })};
+      break;
+    }
+    case "DECK_ADD":
+      next = { ...s, decks: [...s.decks, makeBlankDeck(s.nextDeckId)], nextDeckId: s.nextDeckId+1 };
+      break;
+    case "DECK_DEL":
+      next = { ...s, decks: s.decks.filter(dk => dk.id !== a.id) };
+      break;
+    case "DECK_NAME":
+      next = { ...s, decks: s.decks.map(dk => dk.id===a.id ? { ...dk, name: a.v } : dk) };
+      break;
+    case "DECK_BONUS_COUNT": {
+      next = { ...s, decks: s.decks.map(dk => {
+        if (dk.id !== a.id) return dk;
+        const cur = dk.bonus.length;
+        const target = Math.max(1, Math.min(6, a.v));
+        let bonus = [...dk.bonus];
+        if (target > cur) for (let i=cur; i<target; i++) bonus.push(blankCombo());
+        else bonus = bonus.slice(0, target);
+        return { ...dk, bonus, bonusCount: target };
+      })};
+      break;
+    }
+    case "DECK_COMBO": {
+      next = { ...s, decks: s.decks.map(dk => {
+        if (dk.id !== a.deckId) return dk;
+        if (a.slot === "main") {
+          const combos = dk.combos.map((cb, i) => i===a.idx ? { ...cb, [a.f]: a.v } : cb);
+          return { ...dk, combos };
+        } else {
+          const bonus = dk.bonus.map((cb, i) => i===a.idx ? { ...cb, [a.f]: a.v } : cb);
+          return { ...dk, bonus };
+        }
+      })};
+      break;
+    }
+    case "RESTORE": {
+      next = {
+        myCombo:    a.data.myCombo    || blankCombo(),
+        opponents:  a.data.opponents  || [],
+        nextId:     a.data.nextId     || 1,
+        decks:      a.data.decks      || [],
+        nextDeckId: a.data.nextDeckId || 1,
+        view:       "tracker",
+      };
+      break;
+    }
+    case "FACTORY_RESET": {
+      next = {
+        myCombo:    blankCombo(),
+        opponents:  [makeOpp(1,META_PRESETS[0]), makeOpp(2,META_PRESETS[1]), makeOpp(3,META_PRESETS[2])],
+        nextId:     4,
+        decks:      [],
+        nextDeckId: 1,
+        view:       "tracker",
+      };
+      break;
+    }
+    case "VIEW":   next = { ...s, view: a.v }; break;
+    default:       return s;
+  }
+  saveState(next);
+  return next;
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ UI COMPONENTS  —  Sel, Badge, Toggle, BitPicker, ComboForm, WBar, Chip
+// ════════════════════════════════════════════════════════════════
+function Sel({ val, onChange, opts, ph, accent="#00b4ff" }) {
+  return (
+    <select value={val} onChange={e => onChange(e.target.value)} style={{
+      background: val ? `${accent}14` : "var(--bg-select)",
+      border: `1px solid ${val ? accent+"55" : "var(--border-select)"}`,
+      borderRadius:6, color: val ? "var(--text-ddd)" : "var(--text-dim)",
+      padding:"6px 22px 6px 8px", fontSize:12, flex:1, minWidth:0,
+      outline:"none", cursor:"pointer", appearance:"none",
+      backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23555'/%3E%3C/svg%3E")`,
+      backgroundRepeat:"no-repeat", backgroundPosition:"right 6px center",
+    }}>
+      <option value="">{ph}</option>
+      {opts.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+function SysBadge({ sys }) {
+  const c = SYS_COL[sys] || "#888";
+  return <span className="badge" style={{ color:c, background:`${c}14`, borderColor:`${c}44` }}>{sys}</span>;
+}
+
+function TypeBadge({ type }) {
+  const c = TYPE_COL[type];
+  return <span className="badge" style={{ color:c, background:`${c}18`, borderColor:`${c}44` }}>{type}</span>;
+}
+
+function SysToggle({ val, onChange }) {
+  return (
+    <div className="sys-toggle">
+      {["BX","UX","CX"].map(s => {
+        const c = SYS_COL[s];
+        return <button key={s} className="sys-btn" onClick={() => onChange(s)} style={{
+          background: val===s ? `${c}22` : "rgba(255,255,255,0.03)",
+          borderColor: val===s ? c : "rgba(255,255,255,0.07)",
+          color: val===s ? c : "#555",
+        }}>{s}</button>;
+      })}
+    </div>
+  );
+}
+
+function BitPicker({ value, onChange, accent }) {
+  const [tf, setTf] = useState("All");
+  const ac = accent || "#00b4ff";
+  const filtered = tf === "All" ? BIT_NAMES : BIT_NAMES.filter(n => BITS_MAP[n].type === tf);
+  const info = value ? BITS_MAP[value] : null;
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+      <div className="bit-type-filters">
+        {BIT_TYPES.map(t => {
+          const c = TYPE_COL[t] || ac;
+          const active = tf === t;
+          return <button key={t} className="bit-type-btn" onClick={() => setTf(t)} style={{
+            background: active ? `${c}1a` : "rgba(255,255,255,0.02)",
+            borderColor: active ? `${c}66` : "rgba(255,255,255,0.06)",
+            color: active ? c : "#444",
+          }}>{t}</button>;
+        })}
+      </div>
+      <Sel val={value} onChange={onChange} opts={filtered} ph="Punta" accent={ac} />
+      {info && (
+        <div className="bit-info-card">
+          <div className="bit-info-top">
+            <TypeBadge type={info.type} />
+            <span className="bit-info-note">{info.notes}</span>
+          </div>
+          <div className="bit-mini-stats">
+            {STAT_BARS.map(([l, k, c]) => (
+              <div key={l} className="bit-mini-stat">
+                <span className="bit-mini-label">{l}</span>
+                <div className="bar-bg"><div className="bar-fill" style={{ width:`${info[k]*10}%`, background:c }} /></div>
+                <span className="bit-mini-val" style={{ color:c }}>{info[k]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComboForm({ combo, onChange, accent }) {
+  const blades = combo.system==="UX" ? UX_BLADES : combo.system==="CX" ? CX_BLADES : BX_BLADES;
+  const ac = accent || SYS_COL[combo.system] || "#00b4ff";
+  return (
+    <div className="combo-form">
+      <SysToggle val={combo.system} onChange={v => onChange("system", v)} />
+      {combo.system === "CX" ? (
+        <>
+          <div className="row2">
+            <Sel val={combo.lockChip}    onChange={v=>onChange("lockChip",v)}    opts={CX_LOCK_CHIPS}    ph="Lock Chip"    accent={ac} />
+            <Sel val={combo.mainBlade}   onChange={v=>onChange("mainBlade",v)}   opts={CX_MAIN_BLADES}   ph="Main Blade"   accent={ac} />
+          </div>
+          <div className="row2">
+            <Sel val={combo.assistBlade} onChange={v=>onChange("assistBlade",v)} opts={CX_ASSIST_BLADES} ph="Assist Blade" accent={ac} />
+            <Sel val={combo.ratchet}     onChange={v=>onChange("ratchet",v)}     opts={RATCHETS}         ph="Ratchet"      accent={ac} />
+          </div>
+        </>
+      ) : (
+        <div className="row2">
+          <Sel val={combo.blade}   onChange={v=>onChange("blade",v)}   opts={blades}   ph="Blade"   accent={ac} />
+          <Sel val={combo.ratchet} onChange={v=>onChange("ratchet",v)} opts={RATCHETS} ph="Ratchet" accent={ac} />
+        </div>
+      )}
+      <BitPicker value={combo.bit} onChange={v => onChange("bit", v)} accent={ac} />
+    </div>
+  );
+}
+
+function WBar({ wins, losses, draws }) {
+  const t = wins + losses + draws;
+  if (!t) return <div className="wbar-empty" />;
+  return (
+    <div className="wbar">
+      <div style={{ width:`${wins/t*100}%`,   background:"#22c55e" }} />
+      <div style={{ width:`${draws/t*100}%`,  background:"#f59e0b" }} />
+      <div style={{ flex:1, background:"rgba(239,68,68,0.45)" }} />
+    </div>
+  );
+}
+
+function Chip({ label, color }) {
+  return <span className="chip" style={{ color, background:`${color}18`, borderColor:`${color}44` }}>{label}</span>;
+}
+
+function ResultIcon({ result }) {
+  const map = { win:["▲ WIN","#22c55e"], loss:["▼ LOSS","#ef4444"], draw:["= PARI","#f59e0b"] };
+  const [label, color] = map[result] || ["?","#888"];
+  return <span style={{ color, fontWeight:800, fontSize:11 }}>{label}</span>;
+}
+
+
+function StatsPage({ opponents }) {
+  const active = [...opponents]
+    .filter(o => o.wins + o.losses + o.draws > 0)
+    .sort((a, b) => (b.wins/(b.wins+b.losses+b.draws)) - (a.wins/(a.wins+a.losses+a.draws)));
+  const tw = opponents.reduce((s,o) => s+o.wins, 0);
+  const tl = opponents.reduce((s,o) => s+o.losses, 0);
+  const td = opponents.reduce((s,o) => s+o.draws, 0);
+  const tt = tw + tl + td;
+  const rankColors = ["#22c55e","#aaa","#444"];
+
+  return (
+    <div>
+      {active.length === 0 && <div className="empty-msg">Registra qualche risultato nel Tracker.</div>}
+      {active.map((o, rank) => {
+        const t = o.wins + o.losses + o.draws;
+        const wp = Math.round(o.wins / t * 100);
+        return (
+          <div key={o.id} className="stats-row">
+            <div className="stats-rank" style={{ color: rankColors[rank] || "#444" }}>#{rank+1}</div>
+            <div className="stats-info">
+              <div className="stats-combo-row">
+                <SysBadge sys={o.system} />
+                <span style={{ fontWeight:700, fontSize:12 }}>{comboLabel(o)}</span>
+              </div>
+              <WBar wins={o.wins} losses={o.losses} draws={o.draws} />
+              <div className="chips-row">
+                <Chip label={`${o.wins}W`} color="#22c55e" />
+                <Chip label={`${o.losses}L`} color="#ef4444" />
+                <Chip label={`${o.draws}P`} color="#f59e0b" />
+                <span className="match-count">{t} match</span>
+              </div>
+            </div>
+            <div className="stats-wp" style={{ color: wp>=60?"#22c55e":wp>=40?"#f59e0b":"#ef4444" }}>{wp}%</div>
+          </div>
+        );
+      })}
+      {tt > 0 && (
+        <div className="total-card">
+          <div className="total-title">Record Totale</div>
+          <div className="total-nums">
+            {[["VINTE",tw,"#22c55e"],["PERSE",tl,"#ef4444"],["PARI",td,"#f59e0b"]].map(([l,v,c]) => (
+              <div key={l} className="total-num">
+                <div className="total-num-val" style={{ color:c }}>{v}</div>
+                <div className="total-num-label">{l}</div>
+              </div>
+            ))}
+            <div className="total-wr">
+              <div className="total-wr-val">{Math.round(tw/tt*100)}%</div>
+              <div className="total-wr-label">WIN RATE</div>
+            </div>
+          </div>
+          <WBar wins={tw} losses={tl} draws={td} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ DECK  —  DeckSlot, DeckCard, DeckPage
+// ════════════════════════════════════════════════════════════════
+function DeckSlot({ combo, deckId, slot, idx, dispatch }) {
+  const ok = isComplete(combo);
+  const ac = SYS_COL[combo.system] || "#888";
+  const [open, setOpen] = useState(false);
+  const onChange = (f, v) => dispatch({ type:"DECK_COMBO", deckId, slot, idx, f, v });
+  return (
+    <div className="deck-combo-slot">
+      <div className="deck-combo-slot-header">
+        <span className="deck-slot-num">{slot === "main" ? idx+1 : `B${idx+1}`}</span>
+        <span className="deck-slot-label" style={{ color: ok ? "#ccc" : "#333" }}>
+          {ok ? (
+            <span style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <SysBadge sys={combo.system} />
+              {comboLabel(combo)}
+            </span>
+          ) : <span style={{ color:"var(--text-ghost)" }}>Non configurata</span>}
+        </span>
+        <button onClick={() => setOpen(o=>!o)} style={{
+          background: open ? `${ac}18` : "rgba(255,255,255,0.03)",
+          border: `1px solid ${open ? ac+"44" : "rgba(255,255,255,0.06)"}`,
+          color: open ? ac : "#444", borderRadius:5, padding:"2px 8px", fontSize:9, cursor:"pointer", fontWeight:700,
+        }}>{open ? "▲" : "▼"}</button>
+      </div>
+      {open && <ComboForm combo={combo} onChange={onChange} accent={ac} />}
+    </div>
+  );
+}
+
+function DeckCard({ deck, dispatch }) {
+  const mainComplete = deck.combos.filter(isComplete).length;
+  const bonusComplete = deck.bonus.filter(isComplete).length;
+  const total = 3 + deck.bonus.length;
+  const done = mainComplete + bonusComplete;
+  return (
+    <div className="deck-card">
+      <div className="deck-header">
+        <input
+          className="deck-name-input"
+          value={deck.name}
+          onChange={e => dispatch({ type:"DECK_NAME", id:deck.id, v:e.target.value.slice(0,80) })}
+          placeholder="Nome deck..."
+        />
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <span style={{ fontSize:10, color: done===total ? "#22c55e" : "#555", fontWeight:700 }}>{done}/{total}</span>
+          <button className="deck-del-btn" onClick={() => dispatch({ type:"DECK_DEL", id:deck.id })}>×</button>
+        </div>
+      </div>
+
+      {/* Completeness pills */}
+      <div className="deck-completeness">
+        {deck.combos.map((cb, i) => {
+          const ok = isComplete(cb);
+          return <span key={i} className="deck-pill" style={{
+            background: ok ? "rgba(34,197,94,0.1)" : "rgba(255,255,255,0.03)",
+            borderColor: ok ? "#22c55e44" : "rgba(255,255,255,0.06)",
+            color: ok ? "#22c55e" : "#333",
+          }}>{ok ? `✓ C${i+1}` : `C${i+1}`}</span>;
+        })}
+        {deck.bonus.map((cb, i) => {
+          const ok = isComplete(cb);
+          return <span key={i} className="deck-pill" style={{
+            background: ok ? "rgba(168,85,247,0.1)" : "rgba(255,255,255,0.03)",
+            borderColor: ok ? "#a855f744" : "rgba(255,255,255,0.06)",
+            color: ok ? "#a855f7" : "#333",
+          }}>{ok ? `✓ B${i+1}` : `B${i+1}`}</span>;
+        })}
+      </div>
+
+      {/* Main combos */}
+      <div className="deck-section-label">Combo principali (3)</div>
+      <div className="deck-combos">
+        {deck.combos.map((cb, i) => (
+          <DeckSlot key={i} combo={cb} deckId={deck.id} slot="main" idx={i} dispatch={dispatch} />
+        ))}
+      </div>
+
+      {/* Bonus combos */}
+      <div className="deck-section-label" style={{ display:"flex", alignItems:"center" }}>
+        <span style={{ flex:1 }}>Combo bonus</span>
+      </div>
+      <div className="deck-bonus-controls">
+        <span className="deck-bonus-label">Numero combo bonus</span>
+        <button className="deck-count-btn" onClick={() => dispatch({ type:"DECK_BONUS_COUNT", id:deck.id, v:deck.bonusCount-1 })}>−</button>
+        <span className="deck-count-val">{deck.bonusCount}</span>
+        <button className="deck-count-btn" onClick={() => dispatch({ type:"DECK_BONUS_COUNT", id:deck.id, v:deck.bonusCount+1 })}>+</button>
+      </div>
+      <div className="deck-combos">
+        {deck.bonus.map((cb, i) => (
+          <DeckSlot key={i} combo={cb} deckId={deck.id} slot="bonus" idx={i} dispatch={dispatch} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeckPage({ decks, dispatch }) {
+  return (
+    <div>
+      <div className="section-header">
+        <span className="section-title">I Tuoi Deck · {decks.length}</span>
+        <button className="add-btn" onClick={() => dispatch({ type:"DECK_ADD" })}>+ Nuovo Deck</button>
+      </div>
+      {decks.length === 0 && (
+        <div className="empty-msg" style={{ marginTop:30 }}>
+          <div style={{ fontSize:28, marginBottom:8 }}>🃏</div>
+          <div>Nessun deck ancora.</div>
+          <div style={{ fontSize:11, color:"var(--text-ghost)", marginTop:4 }}>Crea un deck per organizzare le tue combo da torneo.</div>
+        </div>
+      )}
+      {decks.map(dk => <DeckCard key={dk.id} deck={dk} dispatch={dispatch} />)}
+    </div>
+  );
+}
+
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ BACKUP  —  BackupPage
+// ════════════════════════════════════════════════════════════════
+const BACKUP_VERSION = 1;
+
+function BackupPage({ state, dispatch }) {
+  const [toast, setToast] = useState(null);
+  const fileInputRef = React.useRef(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const getBackupData = () => ({
+    _version: BACKUP_VERSION,
+    _app: "BeyTracker X",
+    _date: new Date().toISOString(),
+    myCombo:    state.myCombo,
+    opponents:  state.opponents,
+    nextId:     state.nextId,
+    decks:      state.decks,
+    nextDeckId: state.nextDeckId,
+  });
+
+  const handleExport = async () => {
+    const data = getBackupData();
+    const json = JSON.stringify(data, null, 2);
+    const dateStr = new Date().toISOString().slice(0,10);
+    const filename = `beytrackerx_backup_${dateStr}.json`;
+
+    // Try Web Share API with file (Android + iOS 15+)
+    if (navigator.canShare) {
+      const file = new File([json], filename, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: "BeyTracker X Backup",
+            text: `Backup del ${dateStr}`,
+            files: [file],
+          });
+          showToast("✓ Condiviso!");
+          return;
+        } catch(e) {
+          if (e.name !== "AbortError") console.warn("Share failed:", e);
+          else return; // user cancelled
+        }
+      }
+    }
+    // Fallback: download
+    const blob = new Blob([json], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("✓ File scaricato!");
+  };
+
+  const SAFE_KEYS = ["_version","_app","_date","myCombo","opponents","nextId","decks","nextDeckId"];
+  const sanitizeCombo = (cb) => {
+    if (!cb || typeof cb !== "object") return blankCombo();
+    return {
+      system:     ["BX","UX","CX"].includes(cb.system) ? cb.system : "BX",
+      blade:      typeof cb.blade === "string"      ? cb.blade.slice(0,80)      : "",
+      lockChip:   typeof cb.lockChip === "string"   ? cb.lockChip.slice(0,80)   : "",
+      mainBlade:  typeof cb.mainBlade === "string"  ? cb.mainBlade.slice(0,80)  : "",
+      assistBlade:typeof cb.assistBlade === "string"? cb.assistBlade.slice(0,80): "",
+      ratchet:    typeof cb.ratchet === "string"    ? cb.ratchet.slice(0,20)    : "",
+      bit:        typeof cb.bit === "string"        ? cb.bit.slice(0,80)        : "",
+    };
+  };
+  const sanitizeOpp = (o) => {
+    if (!o || typeof o !== "object") return null;
+    return {
+      id:      typeof o.id === "number" ? o.id : 0,
+      wins:    typeof o.wins === "number"   ? Math.max(0, Math.floor(o.wins))   : 0,
+      losses:  typeof o.losses === "number" ? Math.max(0, Math.floor(o.losses)) : 0,
+      draws:   typeof o.draws === "number"  ? Math.max(0, Math.floor(o.draws))  : 0,
+      history: Array.isArray(o.history) ? o.history.slice(0,200).map(h => ({
+        id:     typeof h.id === "number" ? h.id : Date.now(),
+        result: ["win","loss","draw"].includes(h.result) ? h.result : "draw",
+        finish: typeof h.finish === "string" ? h.finish.slice(0,50) : "",
+        ts:     typeof h.ts === "string" ? h.ts.slice(0,10) : "",
+      })) : [],
+      ...sanitizeCombo(o),
+    };
+  };
+  const sanitizeBackup = (raw) => {
+    if (!raw || typeof raw !== "object") throw new Error("Struttura non valida");
+    if (raw._app !== "BeyTracker X") throw new Error("File non è un backup BeyTracker X");
+    if (raw._version !== 1) throw new Error(`Versione backup non supportata: ${raw._version}`);
+    const opps = Array.isArray(raw.opponents) ? raw.opponents.slice(0,100).map(sanitizeOpp).filter(Boolean) : [];
+    const decks = Array.isArray(raw.decks) ? raw.decks.slice(0,50).map(dk => {
+      if (!dk || typeof dk !== "object") return null;
+      return {
+        id:         typeof dk.id === "number" ? dk.id : 0,
+        name:       typeof dk.name === "string" ? dk.name.slice(0,100) : "Deck",
+        bonusCount: typeof dk.bonusCount === "number" ? Math.max(1,Math.min(6,dk.bonusCount)) : 1,
+        combos:     Array.isArray(dk.combos) ? dk.combos.slice(0,3).map(sanitizeCombo) : [blankCombo(),blankCombo(),blankCombo()],
+        bonus:      Array.isArray(dk.bonus)  ? dk.bonus.slice(0,6).map(sanitizeCombo)  : [blankCombo()],
+      };
+    }).filter(Boolean) : [];
+    return {
+      myCombo:    sanitizeCombo(raw.myCombo),
+      opponents:  opps,
+      nextId:     typeof raw.nextId === "number" ? raw.nextId : opps.length + 1,
+      decks,
+      nextDeckId: typeof raw.nextDeckId === "number" ? raw.nextDeckId : decks.length + 1,
+    };
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast("✗ File troppo grande (max 5MB)"); return; }
+    if (!file.name.endsWith(".json")) { showToast("✗ Formato non supportato — usa un file .json"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = JSON.parse(ev.target.result);
+        const data = sanitizeBackup(raw);
+        dispatch({ type: "RESTORE", data });
+        showToast("✓ Backup ripristinato!");
+      } catch(err) {
+        showToast(`✗ ${err.message || "File non valido"}`);
+      }
+    };
+    reader.onerror = () => showToast("✗ Errore lettura file");
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleReset = () => {
+    if (!confirm("Sei sicuro? Tutti i dati verranno cancellati.")) return;
+    dispatch({ type: "FACTORY_RESET" });
+    showToast("✓ Reset completato");
+  };
+
+  const totalMatches = state.opponents.reduce((s,o) => s + o.wins + o.losses + o.draws, 0);
+  const totalDecks   = state.decks.length;
+  const totalOpps    = state.opponents.length;
+
+  return (
+    <div className="backup-page">
+      {/* Stats snapshot */}
+      <div className="backup-card">
+        <div className="backup-card-title" style={{ color:"#00b4ff" }}>📊 Dati Salvati</div>
+        <div style={{ marginTop:8 }}>
+          {[
+            ["Avversari tracciati", totalOpps],
+            ["Match registrati",    totalMatches],
+            ["Deck creati",         totalDecks],
+            ["Ultimo salvataggio",  (() => { try { const s = localStorage.getItem("beytrackerx_v2"); return s ? new Date(JSON.parse(s)._savedAt||Date.now()).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—"; } catch(_){ return "—"; } })()],
+          ].map(([l,v]) => (
+            <div key={l} className="backup-stat">
+              <span style={{ color:"#666" }}>{l}</span>
+              <span className="backup-stat-val">{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Export */}
+      <div className="backup-card">
+        <div className="backup-card-title" style={{ color:"#22c55e" }}>⬆ Esporta Backup</div>
+        <div className="backup-card-desc">
+          Salva tutti i tuoi dati in un file <strong style={{color:"#aaa"}}>.json</strong>.
+          Puoi condividerlo su <strong style={{color:"#aaa"}}>Telegram, WhatsApp, Mail, Google Drive, iCloud</strong> — qualsiasi app del tuo telefono.
+        </div>
+        <button className="backup-btn export" onClick={handleExport}>
+          📤 Esporta e Condividi
+        </button>
+      </div>
+
+      {/* Import */}
+      <div className="backup-card">
+        <div className="backup-card-title" style={{ color:"#a855f7" }}>⬇ Ripristina Backup</div>
+        <div className="backup-card-desc">
+          Seleziona un file <strong style={{color:"#aaa"}}>.json</strong> precedentemente esportato per ripristinare tutti i dati.<br/>
+          <span style={{color:"#ef4444", fontSize:10}}>⚠ I dati attuali verranno sostituiti.</span>
+        </div>
+        <button className="backup-btn import" onClick={() => fileInputRef.current.click()}>
+          📥 Seleziona File di Backup
+        </button>
+        <input
+          ref={fileInputRef}
+          className="file-input-hidden"
+          type="file"
+          accept=".json,application/json"
+          onChange={handleImport}
+        />
+      </div>
+
+      {/* Danger zone */}
+      <div className="backup-card" style={{ borderColor:"rgba(239,68,68,0.15)" }}>
+        <div className="backup-card-title" style={{ color:"#ef4444" }}>⚠ Zona Pericolosa</div>
+        <div className="backup-card-desc">
+          Cancella tutti i dati e ripristina l'app allo stato iniziale. Operazione irreversibile.
+        </div>
+        <button className="backup-btn danger" onClick={handleReset}>
+          🗑 Reset Completo
+        </button>
+      </div>
+
+      {toast && <div className="backup-toast">{toast}</div>}
+    </div>
+  );
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ PWA  —  useInstallPrompt
+// ════════════════════════════════════════════════════════════════
+function useInstallPrompt() {
+  const [prompt, setPrompt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+  React.useEffect(() => {
+    const handler = e => { e.preventDefault(); setPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => setInstalled(true));
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+  const install = () => { if (prompt) { prompt.prompt(); prompt.userChoice.then(() => setPrompt(null)); } };
+  return { canInstall: !!prompt && !installed, install };
+}
+
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ DEVICE  —  useDevice, BNAV_TABS
+// ════════════════════════════════════════════════════════════════
+// BNAV_TABS, SIDEBAR_ICONS, THEME_ICONS, THEME_LABELS → icons.js (JS puro)
+
+function useDevice() {
+  const [touch, setTouch] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    const handler = e => setTouch(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return touch ? "touch" : "desktop";
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ TEMA  —  useTheme
+// ════════════════════════════════════════════════════════════════
+function useTheme() {
+  const getTheme = () => {
+    const saved = localStorage.getItem('beytrackerx_theme');
+    if (saved) return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  };
+  const [theme, setTheme] = useState(getTheme);
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('beytrackerx_theme', theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = theme === 'light' ? '#f0f2f7' : '#090a0e';
+  }, [theme]);
+
+  // Sync with system changes (only if no manual override stored)
+  React.useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = e => {
+      if (!localStorage.getItem('beytrackerx_theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const toggle = () => setTheme(t => {
+    const next = t === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('beytrackerx_theme', next);
+    return next;
+  });
+
+  const reset = () => {
+    localStorage.removeItem('beytrackerx_theme');
+    const sys = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    setTheme(sys);
+  };
+
+  return { theme, toggle, reset };
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ APP  —  Componente principale
+// ════════════════════════════════════════════════════════════════
+function App() {
+  const [s, d] = useReducer(reducer, initState);
+  const [log, setLog] = useState(null);
+  const [fin, setFin] = useState(FINISH_TYPES[0]);
+  const [exp, setExp] = useState(null);
+  const { myCombo, opponents, view } = s;
+  const myOK = isComplete(myCombo);
+  const { canInstall, install } = useInstallPrompt();
+  const device = useDevice();
+  const isTouch = device === "touch";
+  const { theme, toggle: toggleTheme } = useTheme();
+
+  const openLog = useCallback((oppId) => { setLog({ oppId }); setFin(FINISH_TYPES[0]); }, []);
+
+  // SIDEBAR_ICONS → icons.js
+
+  return (
+    <div className="app">
+      {/* Install Banner */}
+      {canInstall && (
+        <div onClick={install} style={{
+          background:"linear-gradient(90deg,rgba(0,180,255,0.12),rgba(168,85,247,0.1))",
+          borderBottom:"1px solid rgba(0,180,255,0.2)",
+          padding:"9px 15px", display:"flex", alignItems:"center", gap:10,
+          cursor:"pointer",
+        }}>
+          <div style={{width:28,height:28,borderRadius:8,background:"conic-gradient(from 0deg,#00b4ff,#a855f7,#f59e0b,#22c55e,#00b4ff)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>⚡</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,fontWeight:800,color:"#ddd"}}>Installa BeyTracker X</div>
+            <div style={{fontSize:10,color:"#555"}}>Aggiungi alla home screen per usarla offline</div>
+          </div>
+          <div style={{fontSize:10,fontWeight:700,color:"#00b4ff",background:"rgba(0,180,255,0.1)",border:"1px solid rgba(0,180,255,0.25)",borderRadius:5,padding:"4px 9px"}}>Installa</div>
+        </div>
+      )}
+      {/* Header */}
+      <div className="header">
+        <div className="flex-center">
+          <div className="logo-spin">⚡</div>
+          <div>
+            <div className="logo-text">BEY<span style={{ color:"#00b4ff" }}>TRACKER</span><span style={{ color:"#a855f7", fontSize:11 }}> X</span></div>
+            <div className="logo-badges">
+              {["BX","UX","CX"].map(sys => <span key={sys} className="sys-badge" style={{ color:SYS_COL[sys], borderColor:`${SYS_COL[sys]}44`, background:`${SYS_COL[sys]}14` }}>{sys}</span>)}
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <button onClick={toggleTheme} title={theme === "dark" ? "Passa al tema chiaro" : "Passa al tema scuro"} style={{
+            background: "var(--bg-btn-ghost)", border: "1px solid var(--border-btn)",
+            borderRadius:6, width:30, height:30, display:"flex", alignItems:"center",
+            justifyContent:"center", cursor:"pointer", fontSize:14, flexShrink:0,
+            transition:"all 0.2s",
+          }}>{THEME_ICONS[theme]}</button>
+          <div className="nav">
+            {["tracker","deck","stats","bits","backup"].map(v => (
+              <button key={v} className={`nav-btn ${view===v?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v })}>{v}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop shell: sidebar + main */}
+      <div className="desktop-shell">
+
+        {/* Sidebar (desktop only via CSS) */}
+        <div className="sidebar">
+          <div className="sidebar-nav">
+            {["tracker","deck","stats","bits"].map(v => (
+              <button key={v} className={`sidebar-btn ${view===v?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v })}>
+                <span className="sidebar-icon">{SIDEBAR_ICONS[v]}</span>{v}
+              </button>
+            ))}
+            <div className="sidebar-divider"/>
+            <button className={`sidebar-btn ${view==="backup"?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v:"backup" })}>
+              <span className="sidebar-icon">💾</span>backup
+            </button>
+            <div className="sidebar-divider"/>
+            <button onClick={toggleTheme} className="sidebar-btn inactive" title="Cambia tema">
+              <span className="sidebar-icon">{THEME_ICONS[theme]}</span>
+              {THEME_LABELS[theme]}
+            </button>
+          </div>
+        </div>
+
+        {/* Main scrollable area */}
+        <div className="desktop-main">
+          <div className="content">
+        {/* My Combo — shown on touch for all non-deck/bits/backup views,
+             hidden on desktop when tracker is active (it's in the left col there) */}
+        {view !== "bits" && view !== "deck" && view !== "backup" && view !== "tracker" && (
+          <div className="my-combo-card">
+            <div className="card-header">
+              <div className="card-accent-bar" />
+              <span className="card-title">La Tua Combo</span>
+              {myOK && <span className="ready-badge">✓ Pronta</span>}
+            </div>
+            <ComboForm combo={myCombo} onChange={(f,v) => d({ type:"MY", f, v })} />
+            {myOK && (
+              <div className="combo-label">
+                <SysBadge sys={myCombo.system} />
+                {comboLabel(myCombo)}
+              </div>
+            )}
+          </div>
+        )}
+        {/* On touch, show my combo above tracker too */}
+        {view === "tracker" && isTouch && (
+          <div className="my-combo-card">
+            <div className="card-header">
+              <div className="card-accent-bar" />
+              <span className="card-title">La Tua Combo</span>
+              {myOK && <span className="ready-badge">✓ Pronta</span>}
+            </div>
+            <ComboForm combo={myCombo} onChange={(f,v) => d({ type:"MY", f, v })} />
+            {myOK && (
+              <div className="combo-label">
+                <SysBadge sys={myCombo.system} />
+                {comboLabel(myCombo)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tracker */}
+        {view === "tracker" && (
+          <div className="desktop-tracker-grid">
+            <div className="desktop-left-col">
+              {/* My Combo shown here on desktop inside grid */}
+              {!isTouch && view !== "bits" && view !== "deck" && view !== "backup" && (
+                <div className="my-combo-card">
+                  <div className="card-header">
+                    <div className="card-accent-bar" />
+                    <span className="card-title">La Tua Combo</span>
+                    {myOK && <span className="ready-badge">✓ Pronta</span>}
+                  </div>
+                  <ComboForm combo={myCombo} onChange={(f,v) => d({ type:"MY", f, v })} />
+                  {myOK && (
+                    <div className="combo-label">
+                      <SysBadge sys={myCombo.system} />
+                      {comboLabel(myCombo)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="desktop-right-col">
+            <div className="section-header">
+              <span className="section-title">Avversari · {opponents.length}</span>
+              <button className="add-btn" onClick={() => d({ type:"ADD" })}>+ Aggiungi</button>
+            </div>
+
+            {opponents.map((opp, idx) => {
+              const tot = opp.wins + opp.losses + opp.draws;
+              const wp  = tot > 0 ? Math.round(opp.wins / tot * 100) : null;
+              const ok  = isComplete(opp);
+              const isE = exp === opp.id;
+              const ac  = SYS_COL[opp.system] || "#888";
+              return (
+                <div key={opp.id} className="opp-card" style={{ border:`1px solid ${isE ? ac+"33" : "rgba(255,255,255,0.055)"}` }}>
+                  <div className="opp-body">
+                    <div className="opp-top">
+                      <span className="badge" style={{ color:ac, background:`${ac}14`, borderColor:`${ac}44`, fontWeight:800 }}>{idx<3?`M${idx+1}`:`#${idx+1}`} · {opp.system}</span>
+                      <div className="opp-label-name" style={{ color: ok?"#ccc":"#333" }}>
+                        {ok ? comboLabel(opp) : <span style={{ color:"var(--text-ghost)" }}>Non configurato</span>}
+                      </div>
+                      {idx < 3 && (
+                        <div className="preset-btns">
+                          {META_PRESETS.map((p,pi) => (
+                            <button key={pi} className="preset-btn" onClick={() => d({ type:"PRESET", id:opp.id, idx:pi })} title={p.label}>M{pi+1}</button>
+                          ))}
+                        </div>
+                      )}
+                      <button className="del-btn" onClick={() => d({ type:"DEL", id:opp.id })}>×</button>
+                    </div>
+
+                    <ComboForm combo={opp} onChange={(f,v) => d({ type:"OPP", id:opp.id, f, v })} accent={ac} />
+
+                    <div style={{ marginTop:8 }}>
+                      <WBar wins={opp.wins} losses={opp.losses} draws={opp.draws} />
+                      <div className="chips-row">
+                        <Chip label={`${opp.wins}W`} color="#22c55e" />
+                        <Chip label={`${opp.losses}L`} color="#ef4444" />
+                        <Chip label={`${opp.draws}P`} color="#f59e0b" />
+                        {wp !== null
+                          ? <span className="wp-display" style={{ color:wp>=50?"#22c55e":"#ef4444" }}>{wp}%</span>
+                          : <span style={{ marginLeft:"auto", fontSize:11, color:"var(--text-ghost)" }}>—</span>}
+                      </div>
+                    </div>
+
+                    <div className="opp-actions">
+                      <button
+                        className={`register-btn ${myOK&&ok?"enabled":"disabled"}`}
+                        disabled={!myOK || !ok}
+                        onClick={() => myOK && ok && openLog(opp.id)}
+                      >⚔ Registra</button>
+                      <button className="expand-btn" onClick={() => setExp(isE?null:opp.id)} style={{ color:isE?"#00b4ff":"#444" }}>{isE?"▲":"▼"}</button>
+                      {tot > 0 && <button className="reset-btn" onClick={() => d({ type:"RESET", id:opp.id })} title="Reset">↺</button>}
+                    </div>
+                  </div>
+
+                  {isE && (
+                    <div className="history-panel">
+                      <div className="history-title">Storico ({opp.history.length})</div>
+                      {opp.history.length === 0
+                        ? <div style={{ color:"var(--text-ghost)", fontSize:11 }}>Nessun match ancora.</div>
+                        : opp.history.slice(0, 8).map(h => (
+                          <div key={h.id} className="history-row">
+                            <ResultIcon result={h.result} />
+                            <span className="history-finish">{h.finish}</span>
+                            <span className="history-ts">{h.ts}</span>
+                          </div>
+                        ))
+                      }
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            </div>{/* desktop-right-col */}
+          </div>
+        )}
+
+        {view === "deck"  && <DeckPage decks={s.decks} dispatch={d} />}
+        {view === "stats" && <StatsPage opponents={opponents} />}
+        {view === "bits"   && <BitsPage />}
+        {view === "backup" && <BackupPage state={s} dispatch={d} />}
+          </div>{/* content */}
+        </div>{/* desktop-main */}
+      </div>{/* desktop-shell */}
+
+      {/* Bottom nav (touch only via CSS) */}
+      <nav className="bottom-nav">
+        {BNAV_TABS.map(t => (
+          <button key={t.v} className={`bottom-nav-btn ${view===t.v?"active":"inactive"}`} onClick={() => d({ type:"VIEW", v:t.v })}>
+            <span className="bnav-icon">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Log Modal */}
+      {log && (() => {
+        const opp = opponents.find(o => o.id === log.oppId);
+        if (!opp) return null;
+        const tot = opp.wins + opp.losses + opp.draws;
+        const lastResult = opp.history[0];
+        return (
+          <div className="modal-overlay" onClick={() => setLog(null)}>
+            <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+              <div className="modal-handle" />
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:3 }}>
+                <div className="modal-subtitle">Risultato contro</div>
+                <button onClick={() => setLog(null)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", color:"#666", borderRadius:6, padding:"3px 10px", fontSize:11, cursor:"pointer", fontWeight:700 }}>Fine ✓</button>
+              </div>
+              <div className="modal-vs">{comboLabel(opp)}</div>
+              <div style={{ display:"flex", gap:8, marginBottom:11, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8, padding:"7px 10px", alignItems:"center" }}>
+                <Chip label={`${opp.wins}W`} color="#22c55e" />
+                <Chip label={`${opp.losses}L`} color="#ef4444" />
+                <Chip label={`${opp.draws}P`} color="#f59e0b" />
+                <span style={{ color:"#3a3a3a", fontSize:10 }}>{tot} match</span>
+                {lastResult && <span style={{ marginLeft:"auto", fontSize:10, color:"#444" }}>Ultimo: <ResultIcon result={lastResult.result} /></span>}
+              </div>
+              <div className="modal-finish-label">Tipo di fine</div>
+              <div className="modal-finish-btns">
+                {FINISH_TYPES.map(f => (
+                  <button key={f} className="finish-btn" onClick={() => setFin(f)} style={{
+                    background: fin===f ? "rgba(0,180,255,0.12)" : "rgba(255,255,255,0.03)",
+                    borderColor: fin===f ? "#00b4ff44" : "rgba(255,255,255,0.06)",
+                    color: fin===f ? "#00b4ff" : "#555",
+                  }}>{f}</button>
+                ))}
+              </div>
+              <div className="result-btns">
+                {[["▲ WIN","win","#22c55e"],["= PARI","draw","#f59e0b"],["▼ LOSS","loss","#ef4444"]].map(([label,r,color]) => (
+                  <button key={r} className="result-btn" onClick={() => d({ type:"LOG", oppId:opp.id, r, finish:fin })}
+                    style={{ background:`${color}10`, borderColor:`${color}44`, color }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>BeyTracker X</title>
+
+<!-- PWA / Android -->
+<meta name="theme-color" content="#090a0e"/>
+<meta name="referrer" content="no-referrer"/>
+<meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+<meta http-equiv="X-Frame-Options" content="DENY"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="application-name" content="BeyTracker X"/>
+
+<!-- PWA / iOS -->
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="BeyTracker X"/>
+
+<!-- Manifest inline via JS blob (single-file PWA) -->
+<script>
+(function(){
+  const manifest = {
+    name: "BeyTracker X",
+    short_name: "BeyTracker",
+    description: "Track your Beyblade X matchups and decks",
+    start_url: ".",
+    display: "standalone",
+    background_color: "#090a0e",
+    theme_color: "#090a0e",
+    orientation: "portrait-primary",
+    icons: [
+      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%23090a0e'/%3E%3Ccircle cx='256' cy='256' r='190' fill='none' stroke='url(%23g)' stroke-width='24'/%3E%3Ccircle cx='256' cy='256' r='130' fill='none' stroke='url(%23g2)' stroke-width='16'/%3E%3Ccircle cx='256' cy='256' r='40' fill='%2300b4ff'/%3E%3Ctext x='256' y='276' text-anchor='middle' font-size='52' font-family='Arial Black' fill='white'%3E%E2%9A%A1%3C/text%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%2300b4ff'/%3E%3Cstop offset='50%25' stop-color='%23a855f7'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3ClinearGradient id='g2' x1='1' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f59e0b'/%3E%3Cstop offset='100%25' stop-color='%2322c55e'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E",
+        sizes: "any", type: "image/svg+xml", purpose: "any maskable"
+      }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement("link");
+  link.rel = "manifest"; link.href = url;
+  document.currentScript.parentNode.appendChild(link);
+})();
+</script>
+
+<!-- Service Worker (offline + install) -->
+<script>
+if ('serviceWorker' in navigator) {
+  const SW_CODE = `
+const CACHE = 'beytrackerx-v1';
+const ASSETS = [
+  'https://unpkg.com/react@18/umd/react.production.min.js',
+  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+  'https://unpkg.com/@babel/standalone/babel.min.js'
+];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+  );
+});
+  `;
+  const blob = new Blob([SW_CODE], {type: 'text/javascript'});
+  const url  = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url, {scope: '/'})
+    .catch(() => navigator.serviceWorker.register(url));
+}
+</script>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+// Apply saved theme immediately to avoid flash
+(function(){
+  const saved = localStorage.getItem('beytrackerx_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  // Update theme-color meta
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = theme === 'light' ? '#f0f2f7' : '#090a0e';
+})();
+</script>
+
+<link rel="stylesheet" href="theme.css"/>
+<link rel="stylesheet" href="layout.css"/>
+</head>
+<body>
+<div id="root"></div>
+<script src="data.js"></script>
+<script src="icons.js"></script>
+<script type="text/babel">
+// ┌─────────────────────────────────────────────────────────────┐
+// │  BeyTracker X  —  indice sezioni                            │
+// │                                                             │
+// │   ← data.js         blade / ratchet / bit / preset / ui     │
+// │   ← icons.js        icone, BNAV_TABS, ResultIcon            │
+// │   ← theme.css       variabili dark/light + animazioni       │
+// │   ← layout.css      struttura, componenti, responsive       │
+// │                                                             │
+// │   1. HELPERS       comboLabel, blankCombo, type colors      │
+// │   2. PERSISTENZA   loadState, saveState (localStorage)      │
+// │   3. REDUCER       reducer puro — nessun side-effect        │
+// │   4. UI COMPONENTS Sel, Badge, Toggle, BitPicker,           │
+// │                    ComboForm, WBar, Chip                    │
+// │   5. PAGINE        BitsPage, StatsPage                      │
+// │   6. DECK          DeckSlot, DeckCard, DeckPage             │
+// │   7. BACKUP        BackupPage + sanitizzazione input        │
+// │   8. PWA           useInstallPrompt                         │
+// │   9. DEVICE        useDevice, BNAV_TABS                     │
+// │  10. TEMA          useTheme (dark / light / system)         │
+// │  11. APP           componente radice, layout, routing       │
+// └─────────────────────────────────────────────────────────────┘
+
+const { useState, useReducer, useCallback, useEffect, useRef } = React;
+
+
+
+// ▸ DATI  —  caricati da data.js (file esterno)
+
+// ════════════════════════════════════════════════════════════════
+// ▸ HELPERS  —  Funzioni di utilità
+// ════════════════════════════════════════════════════════════════
+const comboLabel = c => {
+  if (!c) return "—";
+  if (c.system === "CX")
+    return (c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit)
+      ? `${c.lockChip} ${c.mainBlade} / ${c.assistBlade} ${c.ratchet} ${c.bit}` : "CX incompleta";
+  return (c.blade && c.ratchet && c.bit) ? `${c.blade} ${c.ratchet} ${c.bit}` : "—";
+};
+const isComplete = c => {
+  if (!c) return false;
+  if (c.system === "CX") return !!(c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit);
+  return !!(c.blade && c.ratchet && c.bit);
+};
+const blankCombo = () => ({ system:"BX", blade:"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:"", bit:"" });
+const makeOpp = (id, p) => ({ id, wins:0, losses:0, draws:0, history:[], system:p?.system||"BX", blade:p?.blade||"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:p?.ratchet||"", bit:p?.bit||"" });
+const ts = () => new Date().toLocaleTimeString("it-IT", { hour:"2-digit", minute:"2-digit" });
+const makeBlankDeck = (id) => ({
+  id,
+  name: `Deck ${id}`,
+  combos: [blankCombo(), blankCombo(), blankCombo()],
+  bonus: [blankCombo()],
+  bonusCount: 1,
+});
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ PERSISTENZA  —  localStorage
+// ════════════════════════════════════════════════════════════════
+const STORAGE_KEY = "beytrackerx_v2";
+const saveState = state => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({...state, _savedAt: Date.now()})); } catch(_) {} };
+const loadState = () => { try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : null; } catch(_) { return null; } };
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ REDUCER  —  State management
+// ════════════════════════════════════════════════════════════════
+const initState = (() => {
+  const saved = loadState();
+  return {
+    myCombo:    saved?.myCombo    || blankCombo(),
+    opponents:  saved?.opponents  || [makeOpp(1,META_PRESETS[0]), makeOpp(2,META_PRESETS[1]), makeOpp(3,META_PRESETS[2])],
+    nextId:     saved?.nextId     || 4,
+    view:       saved?.view       || "tracker",
+    decks:      saved?.decks      || [],
+    nextDeckId: saved?.nextDeckId || 1,
+  };
+})();
+
+function reducer(s, a) {
+  let next;
+  switch (a.type) {
+    case "MY":     next = { ...s, myCombo: { ...s.myCombo, [a.f]: a.v } }; break;
+    case "OPP":    next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, [a.f]:a.v } : o) }; break;
+    case "ADD":    next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId: s.nextId+1 }; break;
+    case "DEL":    next = { ...s, opponents: s.opponents.filter(o => o.id !== a.id) }; break;
+    case "RESET":  next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, wins:0, losses:0, draws:0, history:[] } : o) }; break;
+    case "PRESET": {
+      const p = META_PRESETS[a.idx];
+      next = { ...s, opponents: s.opponents.map(o => o.id===a.id ? { ...o, system:p.system, blade:p.blade, ratchet:p.ratchet, bit:p.bit, lockChip:"", mainBlade:"", assistBlade:"" } : o) };
+      break;
+    }
+    case "LOG": {
+      next = { ...s, opponents: s.opponents.map(o => {
+        if (o.id !== a.oppId) return o;
+        return { ...o,
+          wins:   a.r==="win"  ? o.wins+1   : o.wins,
+          losses: a.r==="loss" ? o.losses+1 : o.losses,
+          draws:  a.r==="draw" ? o.draws+1  : o.draws,
+          history: [{ id:Date.now(), result:a.r, finish:a.finish, ts:ts() }, ...o.history],
+        };
+      })};
+      break;
+    }
+    case "DECK_ADD":
+      next = { ...s, decks: [...s.decks, makeBlankDeck(s.nextDeckId)], nextDeckId: s.nextDeckId+1 };
+      break;
+    case "DECK_DEL":
+      next = { ...s, decks: s.decks.filter(dk => dk.id !== a.id) };
+      break;
+    case "DECK_NAME":
+      next = { ...s, decks: s.decks.map(dk => dk.id===a.id ? { ...dk, name: a.v } : dk) };
+      break;
+    case "DECK_BONUS_COUNT": {
+      next = { ...s, decks: s.decks.map(dk => {
+        if (dk.id !== a.id) return dk;
+        const cur = dk.bonus.length;
+        const target = Math.max(1, Math.min(6, a.v));
+        let bonus = [...dk.bonus];
+        if (target > cur) for (let i=cur; i<target; i++) bonus.push(blankCombo());
+        else bonus = bonus.slice(0, target);
+        return { ...dk, bonus, bonusCount: target };
+      })};
+      break;
+    }
+    case "DECK_COMBO": {
+      next = { ...s, decks: s.decks.map(dk => {
+        if (dk.id !== a.deckId) return dk;
+        if (a.slot === "main") {
+          const combos = dk.combos.map((cb, i) => i===a.idx ? { ...cb, [a.f]: a.v } : cb);
+          return { ...dk, combos };
+        } else {
+          const bonus = dk.bonus.map((cb, i) => i===a.idx ? { ...cb, [a.f]: a.v } : cb);
+          return { ...dk, bonus };
+        }
+      })};
+      break;
+    }
+    case "RESTORE": {
+      next = {
+        myCombo:    a.data.myCombo    || blankCombo(),
+        opponents:  a.data.opponents  || [],
+        nextId:     a.data.nextId     || 1,
+        decks:      a.data.decks      || [],
+        nextDeckId: a.data.nextDeckId || 1,
+        view:       "tracker",
+      };
+      break;
+    }
+    case "FACTORY_RESET": {
+      next = {
+        myCombo:    blankCombo(),
+        opponents:  [makeOpp(1,META_PRESETS[0]), makeOpp(2,META_PRESETS[1]), makeOpp(3,META_PRESETS[2])],
+        nextId:     4,
+        decks:      [],
+        nextDeckId: 1,
+        view:       "tracker",
+      };
+      break;
+    }
+    case "VIEW":   next = { ...s, view: a.v }; break;
+    default:       return s;
+  }
+  saveState(next);
+  return next;
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// ▸ UI COMPONENTS  —  Sel, Badge, Toggle, BitPicker, ComboForm, WBar, Chip
+// ════════════════════════════════════════════════════════════════
+function Sel({ val, onChange, opts, ph, accent="#00b4ff" }) {
+  return (
+    <select value={val} onChange={e => onChange(e.target.value)} style={{
+      background: val ? `${accent}14` : "var(--bg-select)",
+      border: `1px solid ${val ? accent+"55" : "var(--border-select)"}`,
+      borderRadius:6, color: val ? "var(--text-ddd)" : "var(--text-dim)",
+      padding:"6px 22px 6px 8px", fontSize:12, flex:1, minWidth:0,
+      outline:"none", cursor:"pointer", appearance:"none",
+      backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23555'/%3E%3C/svg%3E")`,
+      backgroundRepeat:"no-repeat", backgroundPosition:"right 6px center",
+    }}>
+      <option value="">{ph}</option>
+      {opts.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
+}
+
+function SysBadge({ sys }) {
+  const c = SYS_COL[sys] || "#888";
+  return <span className="badge" style={{ color:c, background:`${c}14`, borderColor:`${c}44` }}>{sys}</span>;
+}
+
+function TypeBadge({ type }) {
+  const c = TYPE_COL[type];
+  return <span className="badge" style={{ color:c, background:`${c}18`, borderColor:`${c}44` }}>{type}</span>;
+}
+
+function SysToggle({ val, onChange }) {
+  return (
+    <div className="sys-toggle">
+      {["BX","UX","CX"].map(s => {
+        const c = SYS_COL[s];
+        return <button key={s} className="sys-btn" onClick={() => onChange(s)} style={{
+          background: val===s ? `${c}22` : "rgba(255,255,255,0.03)",
+          borderColor: val===s ? c : "rgba(255,255,255,0.07)",
+          color: val===s ? c : "#555",
+        }}>{s}</button>;
+      })}
+    </div>
+  );
+}
+
+function BitPicker({ value, onChange, accent }) {
+  const [tf, setTf] = useState("All");
+  const ac = accent || "#00b4ff";
+  const filtered = tf === "All" ? BIT_NAMES : BIT_NAMES.filter(n => BITS_MAP[n].type === tf);
+  const info = value ? BITS_MAP[value] : null;
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+      <div className="bit-type-filters">
+        {BIT_TYPES.map(t => {
+          const c = TYPE_COL[t] || ac;
+          const active = tf === t;
+          return <button key={t} className="bit-type-btn" onClick={() => setTf(t)} style={{
+            background: active ? `${c}1a` : "rgba(255,255,255,0.02)",
+            borderColor: active ? `${c}66` : "rgba(255,255,255,0.06)",
+            color: active ? c : "#444",
+          }}>{t}</button>;
+        })}
+      </div>
+      <Sel val={value} onChange={onChange} opts={filtered} ph="Punta" accent={ac} />
+      {info && (
+        <div className="bit-info-card">
+          <div className="bit-info-top">
+            <TypeBadge type={info.type} />
+            <span className="bit-info-note">{info.notes}</span>
+          </div>
+          <div className="bit-mini-stats">
+            {STAT_BARS.map(([l, k, c]) => (
+              <div key={l} className="bit-mini-stat">
+                <span className="bit-mini-label">{l}</span>
+                <div className="bar-bg"><div className="bar-fill" style={{ width:`${info[k]*10}%`, background:c }} /></div>
+                <span className="bit-mini-val" style={{ color:c }}>{info[k]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComboForm({ combo, onChange, accent }) {
+  const blades = combo.system==="UX" ? UX_BLADES : combo.system==="CX" ? CX_BLADES : BX_BLADES;
+  const ac = accent || SYS_COL[combo.system] || "#00b4ff";
+  return (
+    <div className="combo-form">
+      <SysToggle val={combo.system} onChange={v => onChange("system", v)} />
+      {combo.system === "CX" ? (
+        <>
+          <div className="row2">
+            <Sel val={combo.lockChip}    onChange={v=>onChange("lockChip",v)}    opts={CX_LOCK_CHIPS}    ph="Lock Chip"    accent={ac} />
+            <Sel val={combo.mainBlade}   onChange={v=>onChange("mainBlade",v)}   opts={CX_MAIN_BLADES}   ph="Main Blade"   accent={ac} />
+          </div>
+          <div className="row2">
+            <Sel val={combo.assistBlade} onChange={v=>onChange("assistBlade",v)} opts={CX_ASSIST_BLADES} ph="Assist Blade" accent={ac} />
+            <Sel val={combo.ratchet}     onChange={v=>onChange("ratchet",v)}     opts={RATCHETS}         ph="Ratchet"      accent={ac} />
+          </div>
+        </>
+      ) : (
+        <div className="row2">
+          <Sel val={combo.blade}   onChange={v=>onChange("blade",v)}   opts={blades}   ph="Blade"   accent={ac} />
+          <Sel val={combo.ratchet} onChange={v=>onChange("ratchet",v)} opts={RATCHETS} ph="Ratchet" accent={ac} />
+        </div>
+      )}
+      <BitPicker value={combo.bit} onChange={v => onChange("bit", v)} accent={ac} />
+    </div>
+  );
+}
+
+function WBar({ wins, losses, draws }) {
+  const t = wins + losses + draws;
+  if (!t) return <div className="wbar-empty" />;
+  return (
+    <div className="wbar">
+      <div style={{ width:`${wins/t*100}%`,   background:"#22c55e" }} />
+      <div style={{ width:`${draws/t*100}%`,  background:"#f59e0b" }} />
+      <div style={{ flex:1, background:"rgba(239,68,68,0.45)" }} />
+    </div>
+  );
+}
+
+function Chip({ label, color }) {
+  return <span className="chip" style={{ color, background:`${color}18`, borderColor:`${color}44` }}>{label}</span>;
+}
+
 // ResultIcon → icons.js
 
 
