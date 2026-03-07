@@ -6,6 +6,8 @@ const ASSETS = [
   './icons.js',
   './theme.css',
   './layout.css',
+  './icon-192.png',
+  './icon-512.png',
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js'
