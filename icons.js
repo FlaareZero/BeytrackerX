@@ -10,6 +10,7 @@ const BNAV_TABS = [
   { v: "deck",    icon: "🃏", label: "Deck"    },
   { v: "stats",   icon: "📊", label: "Stats"   },
   { v: "bits",    icon: "🔩", label: "Bits"    },
+  { v: "bp",      icon: "📡", label: "Pass"    },
   { v: "backup",  icon: "💾", label: "Backup"  },
 ];
 
@@ -19,6 +20,7 @@ const SIDEBAR_ICONS = {
   deck:    "🃏",
   stats:   "📊",
   bits:    "🔩",
+  bp:      "📡",
   backup:  "💾",
 };
 
