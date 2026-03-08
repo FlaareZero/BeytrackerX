@@ -789,11 +789,7 @@ function BattlePassView({ myCombo, decks }) {
       setBleState("scanning");
       setErrMsg("");
       const dev = await navigator.bluetooth.requestDevice({
-        filters: [
-          { name: "BEYBLADE_TOOL01" },
-          { namePrefix: "BEY" },
-          { services: [BP_SERVICE] }
-        ],
+        acceptAllDevices: true,
         optionalServices: [BP_SERVICE]
       });
       setDevice(dev);
@@ -813,8 +809,8 @@ function BattlePassView({ myCombo, decks }) {
     } catch (e) {
       setBleState("error");
       if (e.name === "NotFoundError") setErrMsg("Nessun dispositivo selezionato.");
-      else if (e.name === "SecurityError") setErrMsg("Permesso Bluetooth negato.");
-      else setErrMsg(e.message || "Errore connessione.");
+      else if (e.name === "SecurityError") setErrMsg("Permesso Bluetooth negato. Controlla le impostazioni del browser.");
+      else setErrMsg(`[${e.name}] ${e.message || "Errore sconosciuto"}`);
     }
   }
 
