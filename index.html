@@ -229,7 +229,9 @@ function ComboStatsCard({ combo }) {
                       background:`${tCol}18`,border:`1px solid ${tCol}44`,
                       borderRadius:4,padding:'1px 7px'}}>{tLbl}</span>
       </div>
-      <RadarChart stats={stats} color={ac} size={160}/>
+      <div className="radar-wrap">
+        <RadarChart stats={stats} color={ac} size={160}/>
+      </div>
     </div>
   );
 }
@@ -601,7 +603,9 @@ function DeckView({ decks, dispatch }) {
                             borderRadius:4,padding:'1px 5px'}}>{lbl} {val}</span>
                         ))}
                       </div>
-                      <RadarChart stats={stats} color={ac} size={150}/>
+                      <div className="radar-wrap">
+                        <RadarChart stats={stats} color={ac} size={150}/>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -825,155 +829,182 @@ function BattlePassView({ myCombo, decks }) {
   return (
     <div style={{padding:'0 0 24px'}}>
 
-      {/* HEADER CARD */}
-      <div style={{background:'linear-gradient(135deg,#0d1b2a,#0a1628)',border:'1px solid #1a2a3a',
-                   borderRadius:14,padding:'20px 16px',marginBottom:14,position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',top:-20,right:-20,fontSize:80,opacity:0.04,userSelect:'none'}}>📡</div>
-        <div style={{fontSize:9,fontWeight:800,letterSpacing:'2px',color:'#00b4ff',marginBottom:6}}>BEYLOGGER3 — BEYBLADE_TOOL01</div>
-        <div style={{fontSize:18,fontWeight:900,color:'#e8f4fd',marginBottom:12}}>BattlePass</div>
-
-        {/* Status */}
-        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16}}>
-          <span style={{width:8,height:8,borderRadius:'50%',background:statusDot,
-            boxShadow:bleState==='connected'?`0 0 8px ${statusDot}`:'none',display:'inline-block'}}/>
-          <span style={{fontSize:11,color:'var(--text-secondary)',fontWeight:600}}>{statusLabel}</span>
-        </div>
-
-        {/* Combo attiva selector */}
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:9,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'1px',marginBottom:6}}>COMBO ATTIVA</div>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-            <button onClick={()=>setActiveComboSrc("tracker")} style={{
-              background:activeComboSrc==="tracker"?`${acColor}20`:'var(--bg-btn-ghost)',
-              border:`1px solid ${activeComboSrc==="tracker"?acColor:'var(--border-btn)'}`,
-              color:activeComboSrc==="tracker"?acColor:'var(--text-dimmer)',
-              borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,cursor:'pointer'
-            }}>⚔ Tracker</button>
-            {(decks||[]).map(dk => (
-              <button key={dk.id} onClick={()=>setActiveComboSrc(String(dk.id))} style={{
-                background:activeComboSrc===String(dk.id)?`${acColor}20`:'var(--bg-btn-ghost)',
-                border:`1px solid ${activeComboSrc===String(dk.id)?acColor:'var(--border-btn)'}`,
-                color:activeComboSrc===String(dk.id)?acColor:'var(--text-dimmer)',
-                borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,cursor:'pointer'
-              }}>🃏 {dk.name}</button>
-            ))}
-          </div>
-          <div style={{fontSize:12,fontWeight:800,color:acColor,
-            background:`${acColor}10`,border:`1px solid ${acColor}30`,
-            borderRadius:7,padding:'6px 10px'}}>
-            {comboName}
-          </div>
-        </div>
-
-        {/* Connect / Disconnect button */}
-        {bleState === "connected" ? (
-          <button onClick={disconnect} style={{
-            width:'100%',padding:'12px',borderRadius:10,cursor:'pointer',fontWeight:800,fontSize:13,
-            background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.4)',color:'#ef4444'
-          }}>⏏ Disconnetti</button>
-        ) : (
-          <button onClick={connect} disabled={bleState==="scanning"||bleState==="connecting"} style={{
-            width:'100%',padding:'12px',borderRadius:10,cursor:bleState==="scanning"||bleState==="connecting"?'wait':'pointer',
-            fontWeight:800,fontSize:13,opacity:bleState==="scanning"||bleState==="connecting"?0.6:1,
-            background:'linear-gradient(135deg,#0066cc,#0044aa)',border:'1px solid #0088ff',color:'#fff'
-          }}>
-            {bleState==="scanning"||bleState==="connecting" ? "⏳ Connessione…" : "📡 Connetti BattlePass"}
-          </button>
-        )}
-        {errMsg && <div style={{fontSize:10,color:'#ef4444',marginTop:8,textAlign:'center'}}>{errMsg}</div>}
-        {bleState==="unsupported" && (
-          <div style={{fontSize:10,color:'#f59e0b',marginTop:8,textAlign:'center'}}>
-            Web Bluetooth non supportato. Usa Chrome o Edge su Android/PC.
-          </div>
-        )}
+      {/* AVVISO BROWSER */}
+      <div style={{background:'rgba(245,158,11,0.07)',border:'1px solid rgba(245,158,11,0.25)',
+                   borderRadius:10,padding:'10px 12px',marginBottom:12,
+                   display:'flex',alignItems:'flex-start',gap:8}}>
+        <span style={{fontSize:14,flexShrink:0}}>⚠️</span>
+        <span style={{fontSize:10,color:'var(--text-secondary)',lineHeight:1.6}}>
+          Il BattlePass richiede <strong>Google Chrome aggiornato</strong> (Android o PC).
+          Su iOS usa <strong>Bluefy</strong> (App Store). Brave, Firefox e Safari non supportano Web Bluetooth.
+        </span>
       </div>
 
-      {/* HOW TO guide */}
-      {bleState !== "connected" && (
-        <div style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',
-                     borderRadius:12,padding:'14px 14px',marginBottom:14}}>
-          <div style={{fontSize:10,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'1px',marginBottom:10}}>COME USARE</div>
-          {[
-            ["1","Seleziona la combo attiva (Tracker o Deck) qui sopra."],
-            ["2","Tieni premuto il tasto del BattlePass finché il LED lampeggia → modalità sync attiva."],
-            ["3","Premi \"Connetti BattlePass\" nell'app → seleziona BEYBLADE_TOOL01 dal popup."],
-            ["4","Una volta connesso, lancia il tuo Bey. Gli RPM vengono letti automaticamente."],
-          ].map(([n,txt])=>(
-            <div key={n} style={{display:'flex',gap:10,marginBottom:8,alignItems:'flex-start'}}>
-              <span style={{minWidth:20,height:20,background:'#00b4ff20',border:'1px solid #00b4ff40',
-                color:'#00b4ff',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
-                fontSize:9,fontWeight:900,flexShrink:0}}>{n}</span>
-              <span style={{fontSize:11,color:'var(--text-secondary)',lineHeight:1.5}}>{txt}</span>
-            </div>
-          ))}
-          <div style={{fontSize:10,color:'var(--text-ultra)',marginTop:4,padding:'8px',
-            background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.15)',borderRadius:7}}>
-            ⚠️ Il BattlePass fa advertising solo per pochi secondi dopo aver premuto il tasto — connettiti dall'app rapidamente dopo aver attivato il sync.
-          </div>
-        </div>
-      )}
+      <div className="bp-desktop-grid">
 
-      {/* RPM DISPLAY — solo se connesso o con dati */}
-      {(bleState === "connected" || lastRPM) && (
-        <div style={{background:'var(--bg-card)',border:`1px solid ${acColor}30`,
-                     borderRadius:12,padding:'20px 16px',marginBottom:14,textAlign:'center'}}>
-          <div style={{fontSize:9,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'2px',marginBottom:8}}>ULTIMO LANCIO</div>
-          <div style={{fontSize:52,fontWeight:900,color:acColor,lineHeight:1,marginBottom:4,
-            textShadow:`0 0 30px ${acColor}60`}}>
-            {lastRPM ? lastRPM.toLocaleString() : "—"}
-          </div>
-          <div style={{fontSize:13,color:'var(--text-ghost)',marginBottom:12}}>RPM</div>
-          <div style={{display:'inline-block',padding:'4px 14px',borderRadius:20,
-            background:`${rating.color}18`,border:`1px solid ${rating.color}44`,
-            color:rating.color,fontSize:12,fontWeight:700}}>{rating.label}</div>
-          {avgRPM && (
-            <div style={{marginTop:12,fontSize:11,color:'var(--text-dimmer)'}}>
-              Media ultimi {Math.min(launches.length,10)} lanci: <strong style={{color:'var(--text-secondary)'}}>{avgRPM.toLocaleString()} RPM</strong>
-            </div>
-          )}
-          {bleState==="connected" && (
-            <div style={{marginTop:10,fontSize:10,color:'#22c55e',fontWeight:600}}>
-              🟢 In ascolto — lancia il Bey per registrare
-            </div>
-          )}
-        </div>
-      )}
+        {/* COLONNA SINISTRA — connessione + guida */}
+        <div>
+          {/* HEADER CARD */}
+          <div style={{background:'linear-gradient(135deg,#0d1b2a,#0a1628)',border:'1px solid #1a2a3a',
+                       borderRadius:14,padding:'20px 16px',marginBottom:14,position:'relative',overflow:'hidden'}}>
+            <div style={{position:'absolute',top:-20,right:-20,fontSize:80,opacity:0.04,userSelect:'none'}}>📡</div>
+            <div style={{fontSize:9,fontWeight:800,letterSpacing:'2px',color:'#00b4ff',marginBottom:6}}>BEYLOGGER3 — BEYBLADE_TOOL01</div>
+            <div style={{fontSize:18,fontWeight:900,color:'#e8f4fd',marginBottom:12}}>BattlePass</div>
 
-      {/* LAUNCH HISTORY */}
-      {launches.length > 0 && (
-        <div style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:12,padding:'14px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-            <div style={{fontSize:10,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'1px'}}>STORICO LANCI</div>
-            <button onClick={()=>setLaunches([])} style={{
-              fontSize:9,color:'#ef4444',background:'rgba(239,68,68,0.08)',
-              border:'1px solid rgba(239,68,68,0.2)',borderRadius:5,padding:'2px 8px',cursor:'pointer',fontWeight:700
-            }}>Svuota</button>
-          </div>
-          {launches.map((l, i) => {
-            const r = rpmRating(l.rpm);
-            const dt = new Date(l.ts);
-            const time = dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-            return (
-              <div key={i} style={{display:'flex',alignItems:'center',gap:8,
-                padding:'8px 0',borderBottom:i<launches.length-1?'1px solid var(--border-card2)':'none'}}>
-                <span style={{fontSize:9,color:'var(--text-ultra)',minWidth:22,textAlign:'center',
-                  fontWeight:800,color:i===0?acColor:'var(--text-ultra)'}}>{i===0?'▶':i+1}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:11,color:'var(--text-card)',fontWeight:800,
-                    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.comboLabel}</div>
-                  <div style={{fontSize:9,color:'var(--text-ultra)'}}>{time}</div>
-                </div>
-                <span style={{fontSize:13,fontWeight:900,color:r.color,minWidth:60,textAlign:'right'}}>
-                  {l.rpm.toLocaleString()}
-                </span>
-                <span style={{fontSize:8,color:r.color,background:`${r.color}15`,
-                  border:`1px solid ${r.color}33`,borderRadius:4,padding:'1px 5px',
-                  fontWeight:700,minWidth:52,textAlign:'center'}}>{r.label}</span>
+            {/* Status */}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:16}}>
+              <span style={{width:8,height:8,borderRadius:'50%',background:statusDot,
+                boxShadow:bleState==='connected'?`0 0 8px ${statusDot}`:'none',display:'inline-block'}}/>
+              <span style={{fontSize:11,color:'var(--text-secondary)',fontWeight:600}}>{statusLabel}</span>
+            </div>
+
+            {/* Combo attiva selector */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:9,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'1px',marginBottom:6}}>COMBO ATTIVA</div>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+                <button onClick={()=>setActiveComboSrc("tracker")} style={{
+                  background:activeComboSrc==="tracker"?`${acColor}20`:'var(--bg-btn-ghost)',
+                  border:`1px solid ${activeComboSrc==="tracker"?acColor:'var(--border-btn)'}`,
+                  color:activeComboSrc==="tracker"?acColor:'var(--text-dimmer)',
+                  borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,cursor:'pointer'
+                }}>⚔ Tracker</button>
+                {(decks||[]).map(dk => (
+                  <button key={dk.id} onClick={()=>setActiveComboSrc(String(dk.id))} style={{
+                    background:activeComboSrc===String(dk.id)?`${acColor}20`:'var(--bg-btn-ghost)',
+                    border:`1px solid ${activeComboSrc===String(dk.id)?acColor:'var(--border-btn)'}`,
+                    color:activeComboSrc===String(dk.id)?acColor:'var(--text-dimmer)',
+                    borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,cursor:'pointer'
+                  }}>🃏 {dk.name}</button>
+                ))}
               </div>
-            );
-          })}
+              <div style={{fontSize:12,fontWeight:800,color:acColor,
+                background:`${acColor}10`,border:`1px solid ${acColor}30`,
+                borderRadius:7,padding:'6px 10px'}}>
+                {comboName}
+              </div>
+            </div>
+
+            {/* Connect / Disconnect */}
+            {bleState === "connected" ? (
+              <button onClick={disconnect} style={{
+                width:'100%',padding:'12px',borderRadius:10,cursor:'pointer',fontWeight:800,fontSize:13,
+                background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.4)',color:'#ef4444'
+              }}>⏏ Disconnetti</button>
+            ) : (
+              <button onClick={connect} disabled={bleState==="scanning"||bleState==="connecting"} style={{
+                width:'100%',padding:'12px',borderRadius:10,
+                cursor:bleState==="scanning"||bleState==="connecting"?'wait':'pointer',
+                fontWeight:800,fontSize:13,opacity:bleState==="scanning"||bleState==="connecting"?0.6:1,
+                background:'linear-gradient(135deg,#0066cc,#0044aa)',border:'1px solid #0088ff',color:'#fff'
+              }}>
+                {bleState==="scanning"||bleState==="connecting" ? "⏳ Connessione…" : "📡 Connetti BattlePass"}
+              </button>
+            )}
+            {errMsg && <div style={{fontSize:10,color:'#ef4444',marginTop:8,textAlign:'center'}}>{errMsg}</div>}
+            {bleState==="unsupported" && (
+              <div style={{fontSize:10,color:'#f59e0b',marginTop:8,textAlign:'center'}}>
+                Web Bluetooth non supportato. Usa Chrome su Android/PC o Bluefy su iOS.
+              </div>
+            )}
+          </div>
+
+          {/* HOW TO guide */}
+          <div style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',
+                       borderRadius:12,padding:'14px',marginBottom:14}}>
+            <div style={{fontSize:10,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'1px',marginBottom:10}}>COME USARE</div>
+            {[
+              ["1","Seleziona la combo attiva (Tracker o Deck) qui sopra."],
+              ["2","Tieni premuto il tasto del BattlePass finché il LED lampeggia → modalità sync attiva."],
+              ["3","Premi \"Connetti BattlePass\" → seleziona BEYBLADE_TOOL01 dal popup."],
+              ["4","Una volta connesso, lancia il tuo Bey. Gli RPM vengono letti automaticamente."],
+            ].map(([n,txt])=>(
+              <div key={n} style={{display:'flex',gap:10,marginBottom:8,alignItems:'flex-start'}}>
+                <span style={{minWidth:20,height:20,background:'#00b4ff20',border:'1px solid #00b4ff40',
+                  color:'#00b4ff',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
+                  fontSize:9,fontWeight:900,flexShrink:0}}>{n}</span>
+                <span style={{fontSize:11,color:'var(--text-secondary)',lineHeight:1.5}}>{txt}</span>
+              </div>
+            ))}
+            <div style={{fontSize:10,color:'var(--text-ultra)',marginTop:4,padding:'8px',
+              background:'rgba(245,158,11,0.06)',border:'1px solid rgba(245,158,11,0.15)',borderRadius:7}}>
+              ⚠️ Il BattlePass fa advertising solo per pochi secondi — connettiti subito dopo aver premuto il tasto.
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* COLONNA DESTRA — RPM + storico */}
+        <div>
+          {/* RPM DISPLAY */}
+          {(bleState === "connected" || lastRPM) ? (
+            <div style={{background:'var(--bg-card)',border:`1px solid ${acColor}30`,
+                         borderRadius:12,padding:'24px 16px',marginBottom:14,textAlign:'center'}}>
+              <div style={{fontSize:9,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'2px',marginBottom:8}}>ULTIMO LANCIO</div>
+              <div style={{fontSize:64,fontWeight:900,color:acColor,lineHeight:1,marginBottom:4,
+                textShadow:`0 0 40px ${acColor}60`}}>
+                {lastRPM ? lastRPM.toLocaleString() : "—"}
+              </div>
+              <div style={{fontSize:13,color:'var(--text-ghost)',marginBottom:16}}>RPM</div>
+              <div style={{display:'inline-block',padding:'5px 18px',borderRadius:20,
+                background:`${rating.color}18`,border:`1px solid ${rating.color}44`,
+                color:rating.color,fontSize:13,fontWeight:700}}>{rating.label}</div>
+              {avgRPM && (
+                <div style={{marginTop:14,fontSize:11,color:'var(--text-dimmer)'}}>
+                  Media ultimi {Math.min(launches.length,10)} lanci:{' '}
+                  <strong style={{color:'var(--text-secondary)'}}>{avgRPM.toLocaleString()} RPM</strong>
+                </div>
+              )}
+              {bleState==="connected" && (
+                <div style={{marginTop:10,fontSize:10,color:'#22c55e',fontWeight:600}}>
+                  🟢 In ascolto — lancia il Bey per registrare
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',
+                         borderRadius:12,padding:'40px 16px',marginBottom:14,textAlign:'center'}}>
+              <div style={{fontSize:36,marginBottom:8,opacity:0.3}}>📡</div>
+              <div style={{fontSize:12,color:'var(--text-ghost)'}}>Connetti il BattlePass per vedere gli RPM</div>
+            </div>
+          )}
+
+          {/* LAUNCH HISTORY */}
+          {launches.length > 0 && (
+            <div style={{background:'var(--bg-card)',border:'1px solid var(--border-card)',borderRadius:12,padding:'14px'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div style={{fontSize:10,fontWeight:800,color:'var(--text-ghost)',letterSpacing:'1px'}}>STORICO LANCI</div>
+                <button onClick={()=>setLaunches([])} style={{
+                  fontSize:9,color:'#ef4444',background:'rgba(239,68,68,0.08)',
+                  border:'1px solid rgba(239,68,68,0.2)',borderRadius:5,padding:'2px 8px',cursor:'pointer',fontWeight:700
+                }}>Svuota</button>
+              </div>
+              {launches.map((l, i) => {
+                const r = rpmRating(l.rpm);
+                const dt = new Date(l.ts);
+                const time = dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                return (
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:8,
+                    padding:'8px 0',borderBottom:i<launches.length-1?'1px solid var(--border-card2)':'none'}}>
+                    <span style={{fontSize:9,minWidth:22,textAlign:'center',
+                      fontWeight:800,color:i===0?acColor:'var(--text-ultra)'}}>{i===0?'▶':i+1}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11,color:'var(--text-card)',fontWeight:800,
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.comboLabel}</div>
+                      <div style={{fontSize:9,color:'var(--text-ultra)'}}>{time}</div>
+                    </div>
+                    <span style={{fontSize:13,fontWeight:900,color:r.color,minWidth:60,textAlign:'right'}}>
+                      {l.rpm.toLocaleString()}
+                    </span>
+                    <span style={{fontSize:8,color:r.color,background:`${r.color}15`,
+                      border:`1px solid ${r.color}33`,borderRadius:4,padding:'1px 5px',
+                      fontWeight:700,minWidth:52,textAlign:'center'}}>{r.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   );
 }
