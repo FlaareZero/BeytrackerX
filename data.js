@@ -122,7 +122,7 @@ const META_PRESETS = [
   // Spin-Eq
   { label:"Cobalt Dragoon 5-60 Elevate",  system:"BX", blade:"Cobalt Dragoon", ratchet:"5-60", bit:"Elevate",   role:"Spin-Eq",  tier:"S", note:"Meta spin-eq BX" },
   { label:"Cobalt Dragoon 1-60 Elevate",  system:"BX", blade:"Cobalt Dragoon", ratchet:"1-60", bit:"Elevate",   role:"Spin-Eq",  tier:"A", note:"Alternativa più bassa" },
-  { label:"Meteor Dragoon 7-60 Level",    system:"UX", blade:"Meteor Dragoon", ratchet:"7-60", bit:"level",     role:"Attack-Spin-Eq",  tier:"A", note:"Bilanciato con ottima LAD grazie a Level" },
+  { label:"Meteor Dragoon 7-60 Level",    system:"UX", blade:"Meteor Dragoon", ratchet:"7-60", bit:"Level",     role:"Spin-Eq",  tier:"A", note:"Bilanciato con ottima LAD grazie a Level" },
 ];
 
 // ── ROLE / TIER COLORS ───────────────────────────────────────
