@@ -43,17 +43,22 @@
 const { useState, useReducer, useEffect, useCallback, useMemo } = React;
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
+const isRib = r => r === "Turbo" || r === "Operate";
 const comboLabel = c => {
   if (!c) return "—";
-  if (c.system === "CX")
-    return (c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit)
-      ? `${c.lockChip} ${c.mainBlade} / ${c.assistBlade} ${c.ratchet} ${c.bit}` : "CX incompleta";
+  if (c.system === "CX") {
+    const ribOk = isRib(c.ratchet) ? (c.lockChip && c.mainBlade && c.assistBlade && c.ratchet) : (c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit);
+    return ribOk ? `${c.lockChip} ${c.mainBlade} / ${c.assistBlade} ${c.ratchet}${isRib(c.ratchet)?"":" "+c.bit}` : "CX incompleta";
+  }
+  if (isRib(c.ratchet)) return (c.blade && c.ratchet) ? `${c.blade} ${c.ratchet}` : "—";
   return (c.blade && c.ratchet && c.bit) ? `${c.blade} ${c.ratchet} ${c.bit}` : "—";
 };
 const isComplete = c => {
   if (!c) return false;
-  if (c.system === "CX") return !!(c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit);
-  return !!(c.blade && c.ratchet && c.bit);
+  if (c.system === "CX") return isRib(c.ratchet)
+    ? !!(c.lockChip && c.mainBlade && c.assistBlade && c.ratchet)
+    : !!(c.lockChip && c.mainBlade && c.assistBlade && c.ratchet && c.bit);
+  return isRib(c.ratchet) ? !!(c.blade && c.ratchet) : !!(c.blade && c.ratchet && c.bit);
 };
 const blankCombo  = () => ({ system:"BX", blade:"", lockChip:"", mainBlade:"", assistBlade:"", ratchet:"", bit:"" });
 const makeOpp     = (id) => ({ id, ...blankCombo() });
@@ -308,6 +313,11 @@ function MetaPresetsPanel({ onApply }) {
 function ComboForm({ combo, onChange, showStats, showPresets, onPresetApply }) {
   const ac     = SYS_COL[combo.system];
   const blades = combo.system==="UX" ? UX_BLADES : combo.system==="CX" ? CX_BLADES : BX_BLADES;
+  const rib    = isRib(combo.ratchet);
+  const handleRatchet = v => {
+    onChange("ratchet", v);
+    if (isRib(v) && combo.bit) onChange("bit", "");
+  };
   return (
     <div className="combo-form">
       <div className="sys-toggle">
@@ -322,9 +332,14 @@ function ComboForm({ combo, onChange, showStats, showPresets, onPresetApply }) {
       </div>
       <div className="row2">
         <Sel val={combo.blade}   onChange={v => onChange("blade",v)}   opts={blades}   ph="Blade"   accent={ac}/>
-        <Sel val={combo.ratchet} onChange={v => onChange("ratchet",v)} opts={RATCHETS} ph="Ratchet" accent={ac}/>
+        <Sel val={combo.ratchet} onChange={handleRatchet}              opts={RATCHETS} ph="Ratchet" accent={ac}/>
       </div>
-      <Sel val={combo.bit} onChange={v => onChange("bit",v)} opts={BIT_NAMES} ph="Bit" accent={ac}/>
+      {rib
+        ? <div style={{textAlign:'center',fontSize:'0.78rem',color:'var(--text-dimmer)',padding:'4px 0'}}>
+            🔩 Rib — bit integrato
+          </div>
+        : <Sel val={combo.bit} onChange={v => onChange("bit",v)} opts={BIT_NAMES} ph="Bit" accent={ac}/>
+      }
       {showStats && <ComboStatsCard combo={combo}/>}
       {showPresets && onPresetApply && <MetaPresetsPanel onApply={onPresetApply}/>}
     </div>
