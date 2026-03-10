@@ -31,20 +31,47 @@ const CX_BLADES = [
 ];
 
 // ── CX SUB-PARTS ─────────────────────────────────────────────
+// Lock Chips (anello dentato piccolo) — lettera singola
 const CX_LOCK_CHIPS = [
-  "Dran","Wizard","Perseus","Valkyrie","Pegasus","Emperor","Sol","Wolf",
-  "Phoenix","Knight","Hells","Leon","Shark","Rhino","Cobalt","Cerberus",
-  "Fox","Whale","Bahamut","Ragna","Kraken",
+  "A (Assault)","B (Bumper)","C (Charge)","D (Dual)","E (Erase)",
+  "F (Free)","H (Heavy)","J (Jaggy)","K (Knuckle)","M (Massive)",
+  "R (Round)","S (Slash)","T (Turn)","V (Vertical)","W (Wheel)",
+  "Z (Zillion)",
 ];
 
-const CX_MAIN_BLADES = [
-  "Brave","Arc","Dark","Reaper","Blast","Flame","Eclipse","Hunt",
-  "Might","Flare","Blitz","Fortress","Rage","Wriggle","Volt","Fang","Brush","Fort",
-];
+// Lock Chip weights (g) — Heavy 8g, Valkyrie chip 5.2g, Emperor chip 6.4g noti
+const CX_LOCK_CHIP_WEIGHTS = {
+  "A (Assault)":4.5, "B (Bumper)":4.5,  "C (Charge)":4.5,  "D (Dual)":4.5,
+  "E (Erase)":4.5,   "F (Free)":4.5,    "H (Heavy)":8.0,   "J (Jaggy)":4.5,
+  "K (Knuckle)":4.5, "M (Massive)":4.5, "R (Round)":4.5,   "S (Slash)":5.0,
+  "T (Turn)":4.5,    "V (Vertical)":4.5,"W (Wheel)":4.5,   "Z (Zillion)":7.0,
+};
 
+// Assist Blades (disco decorativo) — nome animale/personaggio
 const CX_ASSIST_BLADES = [
-  "Slash","Heavy","Free","Assault","Zillion","Dual","Turn","Massive",
-  "Wheel","Jaggy","Knuckle","Round","Vertical","Erase","Charge","Bumper",
+  "Bahamut","Cerberus","Dran","Emperor","Fox",
+  "Hells","Hornet","Knight","Kraken","Leon",
+  "Pegasus","Perseus","Phoenix","Ragna","Rhino",
+  "Sol","Stag","Valkyrie","Whale","Wizard","Wolf",
+];
+
+// Assist Blade weights (g) — Valkyrie noto 5.2g, Emperor noto 6.4g, resto ~5-6g
+const CX_ASSIST_BLADE_WEIGHTS = {
+  "Bahamut":5.5, "Cerberus":5.5, "Dran":5.5,    "Emperor":6.4, "Fox":5.5,
+  "Hells":5.5,   "Hornet":5.0,   "Knight":5.5,  "Kraken":5.5,  "Leon":5.5,
+  "Pegasus":5.5, "Perseus":5.5,  "Phoenix":5.5, "Ragna":5.5,   "Rhino":5.5,
+  "Sol":5.5,     "Stag":5.5,     "Valkyrie":5.2,"Whale":5.5,   "Wizard":5.5,
+  "Wolf":5.5,
+};
+
+// Main Blades (la blade vera con +Assist) — dalle screen 6-9
+const CX_MAIN_BLADES = [
+  "Antler Stag","Bahamut Blitz Break","Cerberus Flame","Dran Brave",
+  "Emperor Might","Fort Hornet","Fox Brush","Hells Reaper",
+  "Knight Fortress Guard","Kraken Wriggle","Leon Fang","Pegasus Blast",
+  "Pegasus Brush","Perseus Dark","Phoenix Flare","Ragna Rage Flow",
+  "Rhino Reaper","Sol Brave","Sol Eclipse (Smash)","Sol Eclipse (Upper)",
+  "Valkyrie Volt","Whale Flame","Wizard Arc","Wolf Hunt",
 ];
 
 // ── RATCHETS ─────────────────────────────────────────────────
@@ -275,31 +302,45 @@ const BLADE_WEIGHTS = {
   "Kraken Wriggle":30.0,"Valkyrie Volt":30.0, "Leon Fang":30.0,     "Antler Stag":30.5,
 };
 
-// CX sub-parts weights (g)
-const CX_PART_WEIGHTS = {
-  lockChip:  4.5,  // Lock Chip medio ~4-5g
-  mainBlade: 18.0, // Main Blade ~16-20g
-  assistBlade: 8.0,// Assist Blade ~7-9g
+// Main Blade weights (g) — la blade vera ~16-22g
+const CX_MAIN_BLADE_WEIGHTS = {
+  "Antler Stag":18.0,          "Bahamut Blitz Break":19.0,  "Cerberus Flame":18.5,
+  "Dran Brave":19.0,           "Emperor Might":20.0,        "Fort Hornet":18.0,
+  "Fox Brush":18.5,            "Hells Reaper":19.0,         "Knight Fortress Guard":20.0,
+  "Kraken Wriggle":18.5,       "Leon Fang":19.0,            "Pegasus Blast":19.5,
+  "Pegasus Brush":18.5,        "Perseus Dark":19.0,         "Phoenix Flare":18.5,
+  "Ragna Rage Flow":19.0,      "Rhino Reaper":20.0,         "Sol Brave":18.0,
+  "Sol Eclipse (Smash)":19.0,  "Sol Eclipse (Upper)":19.0,  "Valkyrie Volt":21.0,
+  "Whale Flame":18.5,          "Wizard Arc":18.5,           "Wolf Hunt":19.0,
 };
 
 function calcComboWeight(combo) {
   if (!combo) return null;
-  const bw = BLADE_WEIGHTS[combo.blade];
   const rw = RATCHET_WEIGHTS[combo.ratchet];
-  if (!bw || !rw) return null;
+  if (!rw) return null;
   const isRib = RIBS.has(combo.ratchet);
+
+  if (combo.system === "CX") {
+    const lw  = CX_LOCK_CHIP_WEIGHTS[combo.lockChip]   || 4.5;
+    const aw  = CX_ASSIST_BLADE_WEIGHTS[combo.assistBlade] || 5.5;
+    const mw  = CX_MAIN_BLADE_WEIGHTS[combo.mainBlade] || 18.0;
+    const btw = isRib ? 0 : (BIT_WEIGHTS[combo.bit] || 0);
+    if (!combo.lockChip || !combo.assistBlade || !combo.mainBlade) return null;
+    if (!isRib && !combo.bit) return null;
+    return Math.round((lw + aw + mw + rw + btw) * 10) / 10;
+  }
+
+  const bw  = BLADE_WEIGHTS[combo.blade];
+  if (!bw) return null;
   const btw = isRib ? 0 : BIT_WEIGHTS[combo.bit];
   if (!isRib && !btw) return null;
-  let total = bw + rw + btw;
-  if (combo.system === "CX") {
-    total += CX_PART_WEIGHTS.lockChip + CX_PART_WEIGHTS.mainBlade + CX_PART_WEIGHTS.assistBlade;
-  }
-  return Math.round(total * 10) / 10;
+  return Math.round((bw + rw + btw) * 10) / 10;
 }
 
 function calcComboStats(combo) {
   if (!combo) return null;
-  const bData = BLADE_STATS[combo.blade];
+  const bladeKey = combo.system === "CX" ? combo.mainBlade : combo.blade;
+  const bData = BLADE_STATS[bladeKey];
   const rd    = RATCHET_DATA[combo.ratchet];
   const isRib = RIBS.has(combo.ratchet);
   // Per i Rib usiamo stats neutre per il bit (già integrate nel ratchet)
@@ -361,17 +402,30 @@ const BLADE_STATS = {
   "Meteor Dragoon":  [68,30,22], "Mummy Curse":     [35,35,40],
   "Aero Pegasus":    [60,20,40], "Wyvern Hover":    [68,18,24],
   "Orochi Cluster":  [55,30,25],
-  // CX
-  "Courage Dran":    [70,22,18], "Wizard Arc":      [18,22,58],
-  "Perseus Dark":    [65,25,20], "Hells Reaper":    [68,22,20],
-  "Rhino Reaper":    [45,48,18], "Fox Brush":       [55,30,28],
-  "Pegasus Blast":   [72,18,18], "Cerberus Flame":  [65,25,20],
-  "Whale Flame":     [22,28,58], "Sol Eclipse":     [35,30,45],
-  "Wolf Hunt":       [65,25,20], "Emperor Might":   [50,40,25],
-  "Phoenix Flare":   [68,20,22], "Bahamut Blitz":   [72,20,18],
-  "Knight Fortress": [22,58,25], "Ragna Rage":      [70,20,20],
-  "Kraken Wriggle":  [55,28,28], "Valkyrie Volt":   [65,22,22],
-  "Leon Fang":       [68,20,22], "Antler Stag":     [60,28,22],
+  // CX — keyed by Main Blade name, fonte: beytrackr.com [ATK, DEF, STA]
+  "Antler Stag":          [18,35,47], "Bahamut Blitz Break":  [65,20,15],
+  "Cerberus Flame":       [10,30,60], "Dran Brave":           [60,20,20],
+  "Emperor Might":        [44,44,37], "Fort Hornet":          [34,22,44],
+  "Fox Brush":            [60,30,10], "Hells Reaper":         [40,20,40],
+  "Knight Fortress Guard":[25,55,20], "Kraken Wriggle":       [28,22,50],
+  "Leon Fang":            [45,20,35], "Pegasus Blast":        [75,20,20],
+  "Pegasus Brush":        [ 0, 0, 0], "Perseus Dark":         [20,60,20],
+  "Phoenix Flare":        [ 0, 0, 0], "Ragna Rage Flow":      [25,20,55],
+  "Rhino Reaper":         [35,25,15], "Sol Brave":            [ 0, 0, 0],
+  "Sol Eclipse (Smash)":  [33,47,20], "Sol Eclipse (Upper)":  [47,33,20],
+  "Valkyrie Volt":        [45,15,15], "Whale Flame":          [10,30,60],
+  "Wizard Arc":           [20,20,60], "Wolf Hunt":            [25,30,55],
+  // Legacy — vecchi nomi per compatibilità salvataggi esistenti
+  "Courage Dran":    [70,22,18], "Hells Reaper (old)":  [68,22,20],
+  "Rhino Reaper (old)":[45,48,18],"Fox Brush (old)":    [55,30,28],
+  "Cerberus Flame (old)":[65,25,20],"Whale Flame (old)":[22,28,58],
+  "Sol Eclipse":     [35,30,45], "Wolf Hunt (old)":     [65,25,20],
+  "Phoenix Flare (old)":[68,20,22],"Bahamut Blitz":     [72,20,18],
+  "Knight Fortress": [22,58,25], "Ragna Rage":          [70,20,20],
+  "Kraken Wriggle (old)":[55,28,28],"Valkyrie Volt (old)":[65,22,22],
+  "Leon Fang (old)": [68,20,22], "Antler Stag (old)":   [60,28,22],
+  "Wizard Arc (old)":[18,22,58], "Perseus Dark (old)":  [65,25,20],
+  "Emperor Might (old)":[50,40,25],
 };
 
 // ── COSTANTI UI ───────────────────────────────────────────────
