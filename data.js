@@ -54,48 +54,63 @@ const RATCHETS = [
 ];
 
 // ── BITS ─────────────────────────────────────────────────────
-// [ name, type, speed, stamina, defense, burst, notes ]
-const _B = (n,t,sp,st,df,bu,notes) => ({ name:n, type:t, speed:sp, stamina:st, defense:df, burst:bu, notes });
+// [ name, type, speed, stamina, defense, burst, dash, notes ]
+// Valori fonte: beytrackr.com (scala 0-100 → 0-10)
+const _B = (n,t,sp,st,df,bu,da,notes) => ({ name:n, type:t, speed:sp, stamina:st, defense:df, burst:bu, dash:da, notes });
 
 const BITS_DATA = [
-  // Attack
-  _B("Flat",        "Attack",  9,3,2,4, "Pattern a fiore aggressivo, alto potenziale KO"),
-  _B("Under Flat",  "Attack", 10,2,2,7, "Low flat estrema, aggancia rapidamente sulla rail. Quasi assente stamina LAD"),
-  _B("Low Flat",    "Attack",  9,3,2,4, "Profilo basso, ancora più aggressivo del Flat"),
-  _B("Gear Flat",   "Attack",  8,4,2,5, "Denti ingranaggio boost velocità Xtreme dash"),
-  _B("Gear Point",  "Attack",  7,5,3,5, "Variante ingranaggio del Point, flower pattern più ampio con dash aumentato"),
-  _B("Rush",        "Attack",  8,5,3,6, "Auto-KO ridotto, movimento consistente e sicuro"),
-  _B("Low Rush",    "Attack",  9,4,2,5, "Profilo ultra-basso, massimizza contatti ratchet"),
-  _B("Point",       "Attack",  7,6,3,5, "Bilanciato attacco/stamina, flower pattern di movimento"),
-  _B("Taper",       "Attack",  6,7,3,6, "Attacco con backup stamina, forte nel finale sui CX top-heavy"),
-  _B("Jolt",        "Attack",  9,7,3,4, "Aggressiva, punto ridotto allo stadio, molto veloce sulla rail"),
-  _B("Trans Point", "Attack",  6,5,4,5, "Ampiezza ridotta, tocca la rail abbassando il bey. Instabile"),
-  _B("Trans Kick",  "Attack",  7,6,4,5, "Simile a Kick, abbassa il bey a contatto. Non molto consistente"),
-  _B("High Taper",  "Attack",  6,6,3,6, "Versione alta del Taper, più stabile"),
-  _B("RubberAccel", "Attack", 10,5,2,4, "Unisce aggressività iniziale a stamina nella LAD"),
-  // Stamina
-  _B("Ball",        "Stamina", 3,9,5,7, "Top competitivo, alto LAD, perfetto su Wizard Rod"),
-  _B("Gear Ball",   "Stamina", 4,8,5,6, "Variante ingranaggio del Ball, leggermente più mobile mantenendo alto LAD"),
-  _B("Low Orb",     "Stamina", 2,8,5,7, "Orb compatta, ideale su Clock Mirage o build stamina basse"),
-  _B("Orb",         "Stamina", 2,8,4,8, "Tenuta centrale passiva, ottima resistenza al burst"),
-  _B("High Needle", "Stamina", 2,8,4,7, "Punta stretta, ideale per build bilanciate"),
-  _B("Disk Ball",   "Stamina", 3,9,6,7, "Disco grande, LAD eccellente e stabilità superiore"),
-  _B("Free Ball",   "Stamina", 3,8,6,8, "Ball girevole, ibrido stamina/difesa, burst ridotto"),
-  _B("Level",       "Stamina", 9,6,5,4, "3 livelli di velocità in base al contatto. La rail fa accelerare il bey"),
-  _B("Elevate",     "Stamina", 4,7,5,5, "Specialista spin equalization, chiave per Cobalt Dragoon"),
-  _B("Hexa",        "Stamina", 3,7,6,7, "6 lati di stabilità, solida difesa contro attaccanti"),
-  // Defense
-  _B("Needle",      "Defense", 2,5,8,6, "Punta aguzzo assorbe colpi, si muove al contatto"),
-  _B("Spike",       "Defense", 2,4,8,5, "Molto stretto, evasione LAD massimizzata"),
-  _B("Dot",         "Defense", 1,5,8,7, "Contatto minimo, eccellente evasione sotto pressione"),
-  _B("Gear Needle", "Defense", 3,5,7,6, "Difesa boost ingranaggio, si muove al contatto"),
-  _B("Wedge",       "Defense", 3,4,7,4, "Resiste bene ai colpi grazie al piccolo punto di contatto"),
-  _B("Wall Wedge",  "Defense", 4,4,6,3, "Come Wedge ma più stabile grazie alle protuzioni laterali"),
-  // Balance
-  _B("Glide",       "Balance", 4,6,6,7, "Base rotonda, movimento bilanciato consistente"),
-  _B("Wall Ball",   "Balance", 4,5,7,5, "Anello wall stabilizza contro il pavimento dello stadio"),
-  _B("Kick",        "Balance", 8,5,3,4, "Incrocio Hexa/Taper: aggressività e LAD alta"),
-  _B("Unite",       "Balance", 9,7,3,4, "Unione Taper/Ball/Point. Alta velocità, poco controllo, buona LAD"),
+  // ── Attack ──────────────────────────────────────────────────
+  _B("Accel",       "Attack",  4, 1, 1, 8, 4,  "Alta burst resistance, UX. Dash medio"),
+  _B("Cyclone",     "Attack",  4, 1, 0.5,8,4.5,"Aggressivo, BX. Burst resistance alta"),
+  _B("Flat",        "Attack",  4, 1, 1.5,8, 3.5,"Pattern a fiore aggressivo, alto potenziale KO"),
+  _B("Free Flat",   "Attack",  0, 0, 0, 0, 0,  "Dati non ancora disponibili (BX Blue)"),
+  _B("Gear Flat",   "Attack",  5, 0.5,0.5,8,4, "Denti ingranaggio boost velocità Xtreme dash"),
+  _B("Gear Rush",   "Attack",  4.5,1,1, 8, 3.5,"Versione Gear della Rush, CX"),
+  _B("Ignition",    "Attack",  5, 0.5,1.5,8,3, "CX Purple, molto aggressivo"),
+  _B("Jolt",        "Attack",  3.5,1.5,1,8,4,  "Aggressiva, punto ridotto allo stadio, molto veloce sulla rail"),
+  _B("Level",       "Attack",  4, 1.5,0.5,8,4, "3 livelli di velocità in base al contatto"),
+  _B("Low Flat",    "Attack",  4.5,1, 0.5,8,4, "Profilo basso, ancora più aggressivo del Flat"),
+  _B("Low Rush",    "Attack",  4.5,1.5,0.5,8,3.5,"Profilo ultra-basso, massimizza contatti ratchet"),
+  _B("Quake",       "Attack",  5.5,0.5,0.5,8,2.5,"Alta velocità, BX Orange"),
+  _B("Rubber Accel","Attack",  6, 0.3,1.7,8,2, "Unisce aggressività iniziale a stamina nella LAD"),
+  _B("Rush",        "Attack",  4, 2, 1, 8, 3,  "Auto-KO ridotto, movimento consistente e sicuro"),
+  _B("Taper",       "Attack",  3.5,2, 2, 8, 2.5,"Attacco con backup stamina, forte nel finale"),
+  _B("Under Flat",  "Attack",  5.5,0.5,0.5,8,3.5,"Low flat estrema, aggancia rapidamente sulla rail"),
+  _B("Vortex",      "Attack",  4.5,0.5,1, 8, 4, "CX, aggressivo con alta burst resistance"),
+  // ── Stamina ─────────────────────────────────────────────────
+  _B("Ball",        "Stamina", 1.5,5, 2.5,3, 1, "Top competitivo, alto LAD, perfetto su Wizard Rod"),
+  _B("Disk Ball",   "Stamina", 1.5,5.5,2, 3, 1, "Disco grande, LAD eccellente e stabilità superiore"),
+  _B("Elevate",     "Stamina", 3, 2, 1.5,3, 3.5,"Specialista spin equalization, chiave per Cobalt Dragoon"),
+  _B("Free Ball",   "Stamina", 1, 6, 2.5,3, 0.5,"Ball girevole, ibrido stamina/difesa, burst ridotto"),
+  _B("Gear Ball",   "Stamina", 1, 4.5,1.5,3, 3, "Variante ingranaggio del Ball, leggermente più mobile"),
+  _B("Glide",       "Stamina", 2, 5.5,1, 3, 1.5,"Base rotonda, movimento bilanciato consistente"),
+  _B("Hexa",        "Balance", 3, 3.5,3.5,8,1.5,"6 lati di stabilità, UX. Burst resistance alta"),
+  _B("High Needle", "Defense", 1.5,5.5,2, 3, 1, "Punta stretta difesa/stamina, BX"),
+  _B("Low Orb",     "Stamina", 0.5,5.5,2.5,3,1.5,"Orb compatta, ideale su build stamina basse, CX"),
+  _B("Metal Needle","Defense", 0.8,3, 5.7,3, 0.5,"UX, alta difesa. Burst resistance bassa"),
+  _B("Orb",         "Stamina", 1, 5, 3, 3, 1,  "Tenuta centrale passiva, ottima resistenza al burst"),
+  _B("Yielding",    "Stamina", 1, 6.5,1.5,3, 1, "CX Orange, alta stamina"),
+  _B("Zap",         "Balance", 3, 1.5,2, 8, 3.5,"UX, balance/attacco con alta burst resistance"),
+  // ── Defense ─────────────────────────────────────────────────
+  _B("Bound Spike", "Defense", 0.5,3, 6, 3, 0.5,"UX, difesa alta con buona stamina"),
+  _B("Dot",         "Defense", 1, 3, 5.5,3, 1,  "Contatto minimo, eccellente evasione sotto pressione"),
+  _B("Gear Needle", "Defense", 2, 1, 4, 3, 3,  "Difesa boost ingranaggio, si muove al contatto"),
+  _B("Needle",      "Defense", 1, 3, 5, 3, 1,  "Punta aguzzo assorbe colpi, si muove al contatto"),
+  _B("Spike",       "Defense", 1, 3.5,4.5,3,1,  "Molto stretto, evasione LAD massimizzata"),
+  _B("Under Needle","Defense", 1, 2, 6, 3, 1,  "UX, alta difesa"),
+  _B("Wedge",       "Defense", 0.5,3, 5.5,3,1,  "Resiste bene ai colpi grazie al piccolo punto di contatto"),
+  _B("Wall Wedge",  "Defense", 4, 4, 6, 3, 1,  "Come Wedge ma più stabile grazie alle protuzioni laterali"),
+  // ── Balance ─────────────────────────────────────────────────
+  _B("Gear Point",  "Balance", 3, 1.5,2.5,8,3,  "Variante ingranaggio del Point, BX"),
+  _B("High Taper",  "Balance", 3, 2, 2.5,8,2.5, "Versione alta del Taper, più stabile, BX"),
+  _B("Kick",        "Balance", 3.5,1.5,2.5,8,2.5,"Incrocio Hexa/Taper: aggressività e LAD alta, CX"),
+  _B("Merge",       "Balance", 5, 1, 2, 8, 2,   "BX, balance con alta velocità"),
+  _B("Operate",     "Balance", 3.5,2.5,2.5,8,2.5,"CX — Comportamento variabile in base all'angolo di lancio"),
+  _B("Point",       "Balance", 2.5,2.5,2.5,8,2.5,"Bilanciato attacco/stamina, flower pattern di movimento"),
+  _B("Trans Kick",  "Balance", 3.5,2, 3, 8, 1.5,"Simile a Kick, abbassa il bey a contatto, CX"),
+  _B("Trans Point", "Balance", 3.5,2.5,2.5,8,1.5,"Ampiezza ridotta, tocca la rail abbassando il bey"),
+  _B("Unite",       "Balance", 2.5,3, 2.5,8,2,  "Unione Taper/Ball/Point. Alta velocità, poco controllo"),
+  _B("Wall Ball",   "Stamina", 1.5,4.5,3, 3, 1, "Anello wall stabilizza contro il pavimento, CX"),
 ];
 
 // Lookup rapidi derivati
@@ -163,21 +178,28 @@ const RATCHET_WEIGHTS = {
   "5-70":6.7,  "7-70":6.9,  "9-70":6.8,  "D5-70":6.7, "4-55":6.0,
   "0-80":6.5,  "1-80":6.6,  "2-80":6.7,  "3-80":6.75, "4-80":6.8,
   "5-80":6.85, "6-80":6.9,  "7-80":7.0,  "9-80":6.85,
-  "Turbo":6.0,   "M-85":7.2,  "3-85":7.0,  "Operate":8.4,
+  "ATr":6.0,   "M-85":7.2,  "3-85":7.0,
 };
 
 const BIT_WEIGHTS = {
-  "Flat":2.3,       "Under Flat":2.2,  "Low Flat":2.2,   "Gear Flat":2.5,
-  "Gear Point":2.5, "Rush":2.4,        "Low Rush":2.3,   "Point":2.3,
-  "Taper":2.4,      "Jolt":2.4,        "Trans Point":2.4,"Trans Kick":2.4,
-  "High Taper":2.4, "RubberAccel":2.6, "Gear Rush":2.5,
-  "Ball":2.4,       "Gear Ball":2.5,   "Low Orb":2.3,    "Orb":2.4,
-  "High Needle":2.3,"Disk Ball":2.55,  "Free Ball":2.5,  "Level":2.5,
-  "Elevate":2.4,    "Hexa":2.45,
-  "Needle":2.2,     "Spike":2.2,       "Dot":2.1,        "Gear Needle":2.3,
-  "Wedge":2.3,      "Wall Wedge":2.41,
-  "Glide":2.4,       "Wall Ball":2.45, "Kick":2.4,
-  "Unite":2.4,
+  // Attack
+  "Accel":2.4,      "Cyclone":2.4,    "Flat":2.3,       "Free Flat":2.3,
+  "Gear Flat":2.5,  "Gear Rush":2.5,  "Ignition":2.4,   "Jolt":2.4,
+  "Level":2.5,      "Low Flat":2.2,   "Low Rush":2.3,   "Quake":2.4,
+  "Rubber Accel":2.6,"Rush":2.4,      "Taper":2.4,      "Under Flat":2.2,
+  "Vortex":2.4,
+  // Stamina
+  "Ball":2.4,       "Disk Ball":2.55, "Elevate":2.4,    "Free Ball":2.5,
+  "Gear Ball":2.5,  "Glide":2.4,      "Low Orb":2.3,    "Metal Needle":2.3,
+  "Orb":2.4,        "Yielding":2.4,   "Zap":2.4,
+  // Defense
+  "Bound Spike":2.3,"Dot":2.1,        "Gear Needle":2.3,"High Needle":2.3,
+  "Needle":2.2,     "Spike":2.2,      "Under Needle":2.2,"Wedge":2.3,
+  "Wall Wedge":2.41,
+  // Balance
+  "Gear Point":2.5, "Hexa":2.45,      "High Taper":2.4, "Kick":2.4,
+  "Merge":2.4,      "Operate":2.4,    "Point":2.3,      "Trans Kick":2.4,
+  "Trans Point":2.4,"Unite":2.4,      "Wall Ball":2.45,
 };
 
 // Pesi approssimativi delle blade BX/UX (metallo + plastica, fonte: wiki/beybxdb)
