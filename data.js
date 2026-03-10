@@ -32,23 +32,23 @@ const CX_BLADES = [
 
 // ── CX SUB-PARTS ─────────────────────────────────────────────
 // Lock Chips (anello dentato piccolo) — lettera singola
-const CX_LOCK_CHIPS = [
+const CX_ASSIST_BLADES = [
   "A (Assault)","B (Bumper)","C (Charge)","D (Dual)","E (Erase)",
   "F (Free)","H (Heavy)","J (Jaggy)","K (Knuckle)","M (Massive)",
   "R (Round)","S (Slash)","T (Turn)","V (Vertical)","W (Wheel)",
   "Z (Zillion)",
 ];
 
-// Lock Chip weights (g) — Heavy 8g, Valkyrie chip 5.2g, Emperor chip 6.4g noti
-const CX_LOCK_CHIP_WEIGHTS = {
-  "A (Assault)":4.5, "B (Bumper)":4.5,  "C (Charge)":4.5,  "D (Dual)":4.5,
-  "E (Erase)":4.5,   "F (Free)":4.5,    "H (Heavy)":8.0,   "J (Jaggy)":4.5,
-  "K (Knuckle)":4.5, "M (Massive)":4.5, "R (Round)":4.5,   "S (Slash)":5.0,
-  "T (Turn)":4.5,    "V (Vertical)":4.5,"W (Wheel)":4.5,   "Z (Zillion)":7.0,
+// Peso delle assist— Heavy 8g, Valkyrie chip 5.2g, Emperor chip 6.4g noti
+const CX_ASSIST_WEIGHTS = {
+  "A (Assault)":4.5, "B (Bumper)":4.5,  "C (Charge)":4.5,  "D (Dual)":5,
+  "E (Erase)":4.5,   "F (Free)":6,    "H (Heavy)":8.0,   "J (Jaggy)":6,
+  "K (Knuckle)":4.5, "M (Massive)":4.5, "R (Round)":4.5,   "S (Slash)":5,
+  "T (Turn)":4.5,    "V (Vertical)":4.5,"W (Wheel)":6,   "Z (Zillion)":7.0,
 };
 
 // Assist Blades (disco decorativo) — nome animale/personaggio
-const CX_ASSIST_BLADES = [
+const CX_LOCK_CHIPS = [
   "Bahamut","Cerberus","Dran","Emperor","Fox",
   "Hells","Hornet","Knight","Kraken","Leon",
   "Pegasus","Perseus","Phoenix","Ragna","Rhino",
@@ -56,12 +56,12 @@ const CX_ASSIST_BLADES = [
 ];
 
 // Assist Blade weights (g) — Valkyrie noto 5.2g, Emperor noto 6.4g, resto ~5-6g
-const CX_ASSIST_BLADE_WEIGHTS = {
-  "Bahamut":5.5, "Cerberus":5.5, "Dran":5.5,    "Emperor":6.4, "Fox":5.5,
-  "Hells":5.5,   "Hornet":5.0,   "Knight":5.5,  "Kraken":5.5,  "Leon":5.5,
-  "Pegasus":5.5, "Perseus":5.5,  "Phoenix":5.5, "Ragna":5.5,   "Rhino":5.5,
-  "Sol":5.5,     "Stag":5.5,     "Valkyrie":5.2,"Whale":5.5,   "Wizard":5.5,
-  "Wolf":5.5,
+const CX_LOCK_CHIPS_WEIGHTS = {
+  "Bahamut":1, "Cerberus":1, "Dran":1,    "Emperor":6.4, "Fox":1,
+  "Hells":1,   "Hornet":1,   "Knight":1,  "Kraken":1,  "Leon":1,
+  "Pegasus":1, "Perseus":1,  "Phoenix":1, "Ragna":1,   "Rhino":1,
+  "Sol":1,     "Stag":1,     "Valkyrie":5.2,"Whale":1,   "Wizard":1,
+  "Wolf":1,
 };
 
 // Main Blades (la blade vera con +Assist) — dalle screen 6-9
