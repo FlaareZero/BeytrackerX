@@ -214,6 +214,7 @@ function RadarChart({ stats, color, size }) {
 function ComboStatsCard({ combo }) {
   const stats = calcComboStats(combo);
   if (!stats) return null;
+  const weight = calcComboWeight(combo);
   const ac = SYS_COL[combo.system]||'#00b4ff';
   const dominant = Object.entries({attack:stats.attack,defense:stats.defense,stamina:stats.stamina})
     .sort((a,b)=>b[1]-a[1])[0][0];
@@ -225,6 +226,11 @@ function ComboStatsCard({ combo }) {
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
         <span style={{fontSize:10,fontWeight:800,textTransform:'uppercase',
                       letterSpacing:'1px',color:'var(--text-dimmer)'}}>Statistiche Combo</span>
+        {weight && (
+          <span style={{fontSize:10,fontWeight:800,color:'var(--text-secondary)',
+                        background:'var(--bg-bar)',border:'1px solid var(--border-card)',
+                        borderRadius:4,padding:'1px 7px'}}>⚖ {weight}g</span>
+        )}
         <span style={{marginLeft:'auto',fontSize:10,fontWeight:800,color:tCol,
                       background:`${tCol}18`,border:`1px solid ${tCol}44`,
                       borderRadius:4,padding:'1px 7px'}}>{tLbl}</span>
@@ -579,6 +585,7 @@ function DeckView({ decks, dispatch }) {
             {deck.slots.map((slot, idx) => {
               const complete = isComplete(slot);
               const stats = complete ? calcComboStats(slot) : null;
+              const weight = complete ? calcComboWeight(slot) : null;
               const ac = SYS_COL[slot.system] || '#00b4ff';
               return (
                 <div key={idx} className="deck-combo-slot">
@@ -586,6 +593,7 @@ function DeckView({ decks, dispatch }) {
                     <span className="deck-slot-num">{idx+1}</span>
                     <span className="deck-slot-label">{complete ? comboLabel(slot) : "—"}</span>
                     {complete && <span className="chip" style={{borderColor:ac,color:ac,background:`${ac}18`}}>{slot.system}</span>}
+                    {weight && <span style={{fontSize:9,fontWeight:800,color:'var(--text-dimmer)',marginLeft:'auto'}}>⚖ {weight}g</span>}
                   </div>
                   <ComboForm combo={slot} onChange={(f,v) => dispatch({type:"DECK_SLOT",id:deck.id,idx,f,v})}/>
                   {stats && (
@@ -594,7 +602,6 @@ function DeckView({ decks, dispatch }) {
                       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
                         <span style={{fontSize:9,fontWeight:800,textTransform:'uppercase',
                                       letterSpacing:'1px',color:'var(--text-dimmer)'}}>Radar</span>
-                        {/* mini stat chips */}
                         {[['ATK',stats.attack,'#ef4444'],['STA',stats.stamina,'#22c55e'],
                           ['DEF',stats.defense,'#3b82f6'],['BST',stats.burst,'#f59e0b'],
                           ['SPD',stats.speed,'#a855f7']].map(([lbl,val,col])=>(
