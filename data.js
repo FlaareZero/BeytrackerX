@@ -106,23 +106,29 @@ const BIT_TYPES = ["All", "Attack", "Stamina", "Defense", "Balance"];
 
 // ── META PRESET ───────────────────────────────────────────────
 const META_PRESETS = [
-  // ──Meta Picks: ──────────────────────────────────
+  // ── WC2025 + WBO top picks ──────────────────────────────────
   // Stamina
   { label:"Wizard Rod 9-60 Ball",         system:"UX", blade:"Wizard Rod",     ratchet:"9-60", bit:"Ball",      role:"Stamina",  tier:"S", note:"Benchmark stamina WC2025" },
   { label:"Wizard Rod 1-60 Hexa",         system:"UX", blade:"Wizard Rod",     ratchet:"1-60", bit:"Hexa",      role:"Stamina",  tier:"A", note:"Leobardo #1 WC2025" },
+  { label:"Wizard Rod 5-70 Disk Ball",    system:"UX", blade:"Wizard Rod",     ratchet:"5-70", bit:"Disk Ball", role:"Stamina",  tier:"A", note:"Alta LAD, stabile" },
   { label:"Silver Wolf 9-60 Free Ball",   system:"UX", blade:"Silver Wolf",    ratchet:"9-60", bit:"Free Ball", role:"Stamina",  tier:"A", note:"Ibrido stamina/difesa" },
-  { label:"Clock Mirage 4-55 Low Orb",    system:"UX", blade:"Clock Mirage",   ratchet:"4-55", bit:"Low Orb",   role:"Stamina",  tier:"B", note:"Build bassa, ottima LAD" },
+  { label:"Clock Mirage 3-60 Low Orb",    system:"UX", blade:"Clock Mirage",   ratchet:"3-60", bit:"Low Orb",   role:"Stamina",  tier:"B", note:"Build bassa, ottima LAD" },
   // Attack
   { label:"Aero Pegasus 3-60 Low Rush",   system:"UX", blade:"Aero Pegasus",   ratchet:"3-60", bit:"Low Rush",  role:"Attack",   tier:"S", note:"Leobardo #3 WC2025" },
   { label:"Aero Pegasus 7-60 Level",      system:"UX", blade:"Aero Pegasus",   ratchet:"7-60", bit:"Level",     role:"Attack",   tier:"S", note:"Leobardo #2 WC2025" },
   { label:"Phoenix Wing 1-60 Low Rush",   system:"BX", blade:"Phoenix Wing",   ratchet:"1-60", bit:"Low Rush",  role:"Attack",   tier:"A", note:"Alta velocità rail" },
   { label:"Shark Scale 1-70 Low Rush",    system:"UX", blade:"Shark Scale",    ratchet:"1-70", bit:"Low Rush",  role:"Attack",   tier:"A", note:"Balya #2 WC2025" },
   { label:"Shark Scale 3-60 Low Rush",    system:"UX", blade:"Shark Scale",    ratchet:"3-60", bit:"Low Rush",  role:"Attack",   tier:"A", note:"Leobardo #3 alt" },
-  { label:"Wyvern Hover 9-60 Kick",       system:"UX", blade:"Wyvern Hover",   ratchet:"0-60", bit:"Kick",      role:"Attack",   tier:"A", note:"Standard hard hitter build di Wyvern" },
+  { label:"Impact Drake 9-60 Low Rush",   system:"UX", blade:"Impact Drake",   ratchet:"9-60", bit:"Low Rush",  role:"Attack",   tier:"B", note:"KO consistente" },
+  { label:"Wyvern Hover 7-60 Low Rush",   system:"UX", blade:"Wyvern Hover",   ratchet:"7-60", bit:"Low Rush",  role:"Attack",   tier:"A", note:"Berguiny #1 WC2025" },
   // Spin-Eq
   { label:"Cobalt Dragoon 5-60 Elevate",  system:"BX", blade:"Cobalt Dragoon", ratchet:"5-60", bit:"Elevate",   role:"Spin-Eq",  tier:"S", note:"Meta spin-eq BX" },
   { label:"Cobalt Dragoon 1-60 Elevate",  system:"BX", blade:"Cobalt Dragoon", ratchet:"1-60", bit:"Elevate",   role:"Spin-Eq",  tier:"A", note:"Alternativa più bassa" },
-  { label:"Meteor Dragoon 7-60 Level",    system:"UX", blade:"Meteor Dragoon", ratchet:"7-60", bit:"Level",     role:"Spin-Eq",  tier:"A", note:"Bilanciato con ottima LAD grazie a Level" },
+  { label:"Cobalt Dragoon 4-60 Elevate",  system:"BX", blade:"Cobalt Dragoon", ratchet:"4-60", bit:"Elevate",   role:"Spin-Eq",  tier:"A", note:"Bilanciato" },
+  { label:"Cobalt Dragoon 5-60 Elevate",  system:"UX", blade:"Cobalt Dragoon", ratchet:"5-60", bit:"Elevate",   role:"Spin-Eq",  tier:"A", note:"Balya #1 WC2025" },
+  // Defense
+  { label:"Wizard Rod 9-70 Ball",         system:"UX", blade:"Wizard Rod",     ratchet:"9-70", bit:"Ball",      role:"Defense",  tier:"A", note:"Berguiny #2 WC2025" },
+  { label:"Golem Rock 9-60 Orb",          system:"UX", blade:"Golem Rock",     ratchet:"9-60", bit:"Orb",       role:"Defense",  tier:"B", note:"Difesa passiva" },
 ];
 
 // ── ROLE / TIER COLORS ───────────────────────────────────────
@@ -138,14 +144,95 @@ const TIER_COL = { S:"#f59e0b", A:"#22c55e", B:"#00b4ff" };
 // ── CALC COMBO STATS ─────────────────────────────────────────
 // Dati fisici per ratchet: [height_mm, sides, bstBase, atkMod, defMod, staMod]
 const RATCHET_DATA = {
-  "1-60":[60,1,72,-2,0,0], "2-60":[60,2,70,-1,0,1], "3-60":[60,3,68,0,0,1],
-  "4-60":[60,4,66,0,1,2],  "5-60":[60,5,64,0,1,2],  "7-60":[60,7,60,1,2,3],
-  "9-60":[60,9,58,2,2,4],
-  "1-70":[70,1,60,-3,2,-1], "2-70":[70,2,58,-2,2,0], "3-70":[70,3,56,-1,3,0],
-  "4-70":[70,4,54,0,3,1],   "5-70":[70,5,52,0,3,2],  "7-70":[70,7,48,1,4,2],
-  "9-70":[70,9,46,2,4,3],
-  "1-80":[80,1,44,-4,4,-2], "3-80":[80,3,40,-2,5,-1],"5-80":[80,5,36,0,5,0],
+  // 60mm height
+  "0-60":[60,0,76,-3,-1,0], "1-60":[60,1,72,-2,0,0], "2-60":[60,2,70,-1,0,1],
+  "3-60":[60,3,68,0,0,1],   "4-60":[60,4,66,0,1,2],  "5-60":[60,5,64,0,1,2],
+  "6-60":[60,6,62,1,2,3],   "7-60":[60,7,60,1,2,3],  "9-60":[60,9,58,2,2,4],
+  "S6-60":[60,6,63,0,2,2],  "F0-60":[60,0,70,-3,0,1],
+  // 70mm height
+  "0-70":[70,0,64,-4,1,-1], "1-70":[70,1,60,-3,2,-1], "2-70":[70,2,58,-2,2,0],
+  "3-70":[70,3,56,-1,3,0],  "4-70":[70,4,54,0,3,1],   "5-70":[70,5,52,0,3,2],
+  "7-70":[70,7,48,1,4,2],   "9-70":[70,9,46,2,4,3],   "D5-70":[70,5,53,0,3,2],
+  "4-55":[55,4,70,1,1,1],
+  // 80mm height
+  "0-80":[80,0,48,-5,3,-2], "1-80":[80,1,44,-4,4,-2], "2-80":[80,2,42,-3,4,-1],
+  "3-80":[80,3,40,-2,5,-1], "4-80":[80,4,38,-1,5,0],  "5-80":[80,5,36,0,5,0],
+  "6-80":[80,6,34,0,5,1],   "7-80":[80,7,32,1,5,1],   "9-80":[80,9,30,2,5,2],
+  // Special
+  "ATr": [70,0,65,-3,1,0],  "M-85":[85,0,28,-5,6,-3], "3-85":[85,3,30,-2,6,-2],
 };
+
+// ── PART WEIGHTS (grammi, fonte: beybladeplanner.com / beyblade wiki) ─────
+const RATCHET_WEIGHTS = {
+  "0-60":5.8,  "1-60":6.0,  "2-60":6.1,  "3-60":6.35, "4-60":6.4,
+  "5-60":6.5,  "6-60":6.6,  "7-60":7.1,  "9-60":6.7,  "S6-60":6.5, "F0-60":5.9,
+  "0-70":6.2,  "1-70":6.3,  "2-70":6.4,  "3-70":6.5,  "4-70":6.6,
+  "5-70":6.7,  "7-70":6.9,  "9-70":6.8,  "D5-70":6.7, "4-55":6.0,
+  "0-80":6.5,  "1-80":6.6,  "2-80":6.7,  "3-80":6.75, "4-80":6.8,
+  "5-80":6.85, "6-80":6.9,  "7-80":7.0,  "9-80":6.85,
+  "ATr":6.0,   "M-85":7.2,  "3-85":7.0,
+};
+
+const BIT_WEIGHTS = {
+  "Flat":2.3,       "Under Flat":2.2,  "Low Flat":2.2,   "Gear Flat":2.5,
+  "Gear Point":2.5, "Rush":2.4,        "Low Rush":2.3,   "Point":2.3,
+  "Taper":2.4,      "Jolt":2.4,        "Trans Point":2.4,"Trans Kick":2.4,
+  "High Taper":2.4, "RubberAccel":2.6, "Gear Rush":2.5,
+  "Ball":2.4,       "Gear Ball":2.5,   "Low Orb":2.3,    "Orb":2.4,
+  "High Needle":2.3,"Disk Ball":2.55,  "Free Ball":2.5,  "Level":2.5,
+  "Elevate":2.4,    "Hexa":2.45,
+  "Needle":2.2,     "Spike":2.2,       "Dot":2.1,        "Gear Needle":2.3,
+  "Wedge":2.3,      "Wall Wedge":2.41,
+  "Operate":2.4,    "Glide":2.4,       "Wall Ball":2.45, "Kick":2.4,
+  "Unite":2.4,
+};
+
+// Pesi approssimativi delle blade BX/UX (metallo + plastica, fonte: wiki/beybxdb)
+const BLADE_WEIGHTS = {
+  // BX — media ~30-35g per blade standard
+  "Dran Sword":31.5,    "Hells Scythe":31.0,  "Wizard Arrow":29.5,  "Knight Shield":32.0,
+  "Knight Lance":31.0,  "Shark Edge":32.5,    "Leon Claw":31.5,     "Viper Tail":30.5,
+  "Rhino Horn":33.0,    "Dran Dagger":31.0,   "Hells Chain":31.5,   "Phoenix Wing":33.5,
+  "Wyvern Gale":30.5,   "Unicorn Sting":30.0, "Sphinx Cowl":31.0,   "Tyranno Beat":32.0,
+  "Weiss Tiger":31.0,   "Cobalt Dragoon":33.0,"Black Shell":32.0,   "Whale Wave":30.0,
+  "Bear Scratch":31.5,  "Crimson Garuda":32.0,"Shelter Drake":31.0, "Tricera Press":33.5,
+  "Samurai Calibur":31.5,"Goat Tackle":31.0,  "Cobalt Drake":33.0,  "Phoenix Feather":30.5,
+  "Mammoth Tusk":33.0,  "Croc Crunch":31.5,   "Samurai Steel":31.5, "Shinobi Knife":30.5,
+  "Tyranno Roar":32.0,
+  // UX — media ~32-37g (più metallo)
+  "Dran Buster":34.0,   "Hells Hammer":33.5,  "Wizard Rod":32.0,    "Shinobi Shadow":33.0,
+  "Leon Crest":33.5,    "Phoenix Rudder":33.0,"Silver Wolf":32.5,   "Samurai Saber":33.0,
+  "Knight Mail":34.0,   "Ptera Swing":33.5,   "Impact Drake":36.0,  "Ghost Circle":32.0,
+  "Golem Rock":35.5,    "Scorpio Spear":33.0, "Shark Scale":35.5,   "Clock Mirage":32.0,
+  "Meteor Dragoon":34.5,"Mummy Curse":33.0,   "Aero Pegasus":34.0,  "Wyvern Hover":33.5,
+  "Orochi Cluster":33.0,
+  // CX — solo blade top layer, ~28-32g
+  "Courage Dran":30.0,  "Wizard Arc":29.0,    "Perseus Dark":30.5,  "Hells Reaper":30.0,
+  "Rhino Reaper":31.0,  "Fox Brush":29.5,     "Pegasus Blast":30.5, "Cerberus Flame":30.0,
+  "Whale Flame":29.0,   "Sol Eclipse":30.0,   "Wolf Hunt":30.0,     "Emperor Might":31.0,
+  "Phoenix Flare":30.0, "Bahamut Blitz":31.0, "Knight Fortress":31.5,"Ragna Rage":30.5,
+  "Kraken Wriggle":30.0,"Valkyrie Volt":30.0, "Leon Fang":30.0,     "Antler Stag":30.5,
+};
+
+// CX sub-parts weights (g)
+const CX_PART_WEIGHTS = {
+  lockChip:  4.5,  // Lock Chip medio ~4-5g
+  mainBlade: 18.0, // Main Blade ~16-20g
+  assistBlade: 8.0,// Assist Blade ~7-9g
+};
+
+function calcComboWeight(combo) {
+  if (!combo) return null;
+  const bw = BLADE_WEIGHTS[combo.blade];
+  const rw = RATCHET_WEIGHTS[combo.ratchet];
+  const btw = BIT_WEIGHTS[combo.bit];
+  if (!bw || !rw || !btw) return null;
+  let total = bw + rw + btw;
+  if (combo.system === "CX") {
+    total += CX_PART_WEIGHTS.lockChip + CX_PART_WEIGHTS.mainBlade + CX_PART_WEIGHTS.assistBlade;
+  }
+  return Math.round(total * 10) / 10;
+}
 
 function calcComboStats(combo) {
   if (!combo) return null;
