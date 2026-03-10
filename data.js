@@ -4,13 +4,15 @@
 
 // ── BLADE LISTS ──────────────────────────────────────────────
 const BX_BLADES = [
-  "Dran Sword","Hells Scythe","Wizard Arrow","Knight Shield","Knight Lance",
-  "Shark Edge","Leon Claw","Viper Tail","Rhino Horn","Dran Dagger",
-  "Hells Chain","Phoenix Wing","Wyvern Gale","Unicorn Sting","Sphinx Cowl",
-  "Tyranno Beat","Weiss Tiger","Cobalt Dragoon","Black Shell","Whale Wave",
-  "Bear Scratch","Crimson Garuda","Shelter Drake","Tricera Press","Samurai Calibur",
-  "Goat Tackle","Cobalt Drake","Phoenix Feather","Mammoth Tusk","Croc Crunch",
-  "Samurai Steel","Shinobi Knife","Tyranno Roar",
+  "Bear Scratch","Bite Croc","Black Shell","Cobalt Dragoon","Cobalt Drake",
+  "Crimson Garuda","Croc Crunch","Dran Dagger","Dran Strike","Dran Sword",
+  "Goat Tackle","Hack Viking","Hells Chain","Hells Scythe","Knife Shinobi",
+  "Knight Lance","Knight Shield","Leon Claw","Mammoth Tusk","Phoenix Feather",
+  "Phoenix Wing","Ridge Triceratops","Rhino Horn","Samurai Calibur","Samurai Steel",
+  "Savage Bear","Shark Edge","Shark Gill","Shelter Drake","Shinobi Knife",
+  "Sphinx Cowl","Talon Ptera","Tricera Press","Tusk Mammoth","Tyranno Beat",
+  "Tyranno Roar","Unicorn Sting","Viper Tail","Weiss Tiger","Whale Wave",
+  "Wizard Arrow","Wyvern Gale","Yell Kong",
 ];
 
 const UX_BLADES = [
@@ -247,15 +249,17 @@ const BIT_WEIGHTS = {
 // Pesi approssimativi delle blade BX/UX (metallo + plastica, fonte: wiki/beybxdb)
 const BLADE_WEIGHTS = {
   // BX — media ~30-35g per blade standard
-  "Dran Sword":31.5,    "Hells Scythe":31.0,  "Wizard Arrow":29.5,  "Knight Shield":32.0,
-  "Knight Lance":31.0,  "Shark Edge":32.5,    "Leon Claw":31.5,     "Viper Tail":30.5,
-  "Rhino Horn":33.0,    "Dran Dagger":31.0,   "Hells Chain":31.5,   "Phoenix Wing":33.5,
-  "Wyvern Gale":30.5,   "Unicorn Sting":30.0, "Sphinx Cowl":31.0,   "Tyranno Beat":32.0,
-  "Weiss Tiger":31.0,   "Cobalt Dragoon":33.0,"Black Shell":32.0,   "Whale Wave":30.0,
-  "Bear Scratch":31.5,  "Crimson Garuda":32.0,"Shelter Drake":31.0, "Tricera Press":33.5,
-  "Samurai Calibur":31.5,"Goat Tackle":31.0,  "Cobalt Drake":33.0,  "Phoenix Feather":30.5,
-  "Mammoth Tusk":33.0,  "Croc Crunch":31.5,   "Samurai Steel":31.5, "Shinobi Knife":30.5,
-  "Tyranno Roar":32.0,
+  "Bear Scratch":31.5,  "Bite Croc":31.0,     "Black Shell":32.0,   "Cobalt Dragoon":33.0,
+  "Cobalt Drake":33.0,  "Crimson Garuda":32.0,"Croc Crunch":31.5,   "Dran Dagger":31.0,
+  "Dran Strike":30.5,   "Dran Sword":31.5,    "Goat Tackle":31.0,   "Hack Viking":31.0,
+  "Hells Chain":31.5,   "Hells Scythe":31.0,  "Knife Shinobi":30.5, "Knight Lance":31.0,
+  "Knight Shield":32.0, "Leon Claw":31.5,      "Mammoth Tusk":33.0,  "Phoenix Feather":30.5,
+  "Phoenix Wing":33.5,  "Ridge Triceratops":33.5,"Rhino Horn":33.0,  "Samurai Calibur":31.5,
+  "Samurai Steel":31.5, "Savage Bear":31.0,   "Shark Edge":32.5,    "Shark Gill":31.0,
+  "Shelter Drake":31.0, "Shinobi Knife":30.5, "Sphinx Cowl":31.0,   "Talon Ptera":30.5,
+  "Tricera Press":33.5, "Tusk Mammoth":32.5,  "Tyranno Beat":32.0,  "Tyranno Roar":32.0,
+  "Unicorn Sting":30.0, "Viper Tail":30.5,    "Weiss Tiger":31.0,   "Whale Wave":30.0,
+  "Wizard Arrow":29.5,  "Wyvern Gale":30.5,   "Yell Kong":31.0,
   // UX — media ~32-37g (più metallo)
   "Dran Buster":34.0,   "Hells Hammer":33.5,  "Wizard Rod":32.0,    "Shinobi Shadow":33.0,
   "Leon Crest":33.5,    "Phoenix Rudder":33.0,"Silver Wolf":32.5,   "Samurai Saber":33.0,
@@ -322,24 +326,29 @@ function calcComboStats(combo) {
 // ── BLADE STATS ──────────────────────────────────────────────
 // [ATK, DEF, STA] — fonte: beycommunity.com / beybxdb.com
 const BLADE_STATS = {
-  // BX
-  "Dran Sword":      [65,20,25], "Hells Scythe":    [60,25,20],
-  "Wizard Arrow":    [20,25,55], "Knight Shield":   [15,55,30],
-  "Knight Lance":    [35,40,30], "Shark Edge":      [70,15,15],
-  "Leon Claw":       [68,20,20], "Viper Tail":      [55,25,30],
-  "Rhino Horn":      [40,50,20], "Dran Dagger":     [72,15,18],
-  "Hells Chain":     [62,22,22], "Phoenix Wing":    [75,15,15],
-  "Wyvern Gale":     [65,18,22], "Unicorn Sting":   [55,20,30],
-  "Sphinx Cowl":     [30,35,40], "Tyranno Beat":    [68,25,15],
-  "Weiss Tiger":     [50,30,30], "Cobalt Dragoon":  [70,35,25],
-  "Black Shell":     [25,55,25], "Whale Wave":      [20,30,55],
-  "Bear Scratch":    [60,28,22], "Crimson Garuda":  [72,18,18],
-  "Shelter Drake":   [30,50,30], "Tricera Press":   [45,45,20],
-  "Samurai Calibur": [65,20,25], "Goat Tackle":     [55,35,20],
-  "Phoenix Feather": [60,20,30], "Mammoth Tusk":    [50,40,20],
-  "Croc Crunch":     [65,22,18], "Samurai Steel":   [60,25,25],
-  "Shinobi Knife":   [70,18,20], "Tyranno Roar":    [65,25,18],
-  "Cobalt Drake":    [70,35,25],
+  // BX — fonte: beytrackr.com [ATK, DEF, STA]
+  "Bear Scratch":    [25,45,30], "Bite Croc":       [60,22,18],
+  "Black Shell":     [10,65,25], "Cobalt Dragoon":  [60,15,25],
+  "Cobalt Drake":    [70,35,25], "Crimson Garuda":  [45,25,30],
+  "Croc Crunch":     [60,22,18], "Dran Dagger":     [50,25,25],
+  "Dran Strike":     [ 0, 0, 0], "Dran Sword":      [55,25,20],
+  "Goat Tackle":     [13,65,22], "Hack Viking":     [47,28,25],
+  "Hells Chain":     [35,40,25], "Hells Scythe":    [30,35,35],
+  "Knife Shinobi":   [23,50,27], "Knight Lance":    [25,60,15],
+  "Knight Shield":   [20,55,25], "Leon Claw":       [40,40,20],
+  "Mammoth Tusk":    [38,40,37], "Phoenix Feather": [50,30,20],
+  "Phoenix Wing":    [65,30,20], "Ridge Triceratops":[32,55,13],
+  "Rhino Horn":      [20,50,30], "Samurai Calibur": [40,30,30],
+  "Samurai Steel":   [40,37,23], "Savage Bear":     [17,50,33],
+  "Shark Edge":      [60,25,15], "Shark Gill":      [20,25,55],
+  "Shelter Drake":   [25,40,35], "Shinobi Knife":   [23,50,27],
+  "Sphinx Cowl":     [35,55,10], "Talon Ptera":     [27,23,50],
+  "Tricera Press":   [20,65,15], "Tusk Mammoth":    [33,35,32],
+  "Tyranno Beat":    [65,30, 5], "Tyranno Roar":    [65,25,18],
+  "Unicorn Sting":   [35,35,30], "Viper Tail":      [30,20,50],
+  "Weiss Tiger":     [45,30,25], "Whale Wave":      [45,35,20],
+  "Wyvern Gale":     [10,40,50], "Wizard Arrow":    [15,30,55],
+  "Yell Kong":       [13,37,50],
   // UX
   "Dran Buster":     [68,22,20], "Hells Hammer":    [65,25,18],
   "Wizard Rod":      [15,25,56], "Shinobi Shadow":  [68,20,22],
