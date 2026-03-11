@@ -113,9 +113,17 @@ function reducer(s, a) {
     case "ADD_OPP":
       next = { ...s, opponents: [...s.opponents, makeOpp(s.nextId)], nextId:s.nextId+1 }; break;
     case "ADD_OPP_META": {
-      // a.preset = { system, blade, ratchet, bit }
       const p = a.preset;
-      const newOpp = { ...makeOpp(s.nextId), system:p.system, blade:p.blade, ratchet:p.ratchet, bit:p.bit };
+      const newOpp = {
+        ...makeOpp(s.nextId),
+        system: p.system,
+        blade:  p.blade  || "",
+        ratchet:p.ratchet|| "",
+        bit:    p.bit    || "",
+        lockChip:    p.lockChip    || "",
+        assistBlade: p.assistBlade || "",
+        mainBlade:   p.mainBlade   || "",
+      };
       next = { ...s, opponents: [...s.opponents, newOpp], nextId:s.nextId+1 };
       break;
     }
@@ -251,7 +259,158 @@ function ComboStatsCard({ combo }) {
   );
 }
 
-/* ─── META PRESETS PANEL ────────────────────────────────────── */
+/* ─── COMBO COMPARE RADAR ───────────────────────────────────── */
+function ComboCompareRadar({ myCombo, opponents }) {
+  const [slotA, setSlotA] = useState("my");
+  const [slotB, setSlotB] = useState("my");
+
+  // Costruisce la lista di scelte: la mia combo + tutti gli avversari completi
+  const allCombos = useMemo(() => {
+    const list = [{ id:"my", label:"La tua combo", combo: myCombo }];
+    (opponents||[]).forEach(o => {
+      if (isComplete(o)) list.push({ id:String(o.id), label: comboLabel(o), combo: o });
+    });
+    return list;
+  }, [myCombo, opponents]);
+
+  const comboA = allCombos.find(c => c.id === slotA)?.combo;
+  const comboB = allCombos.find(c => c.id === slotB)?.combo;
+  const statsA = isComplete(comboA) ? calcComboStats(comboA) : null;
+  const statsB = isComplete(comboB) ? calcComboStats(comboB) : null;
+
+  const axes = [
+    {key:'attack', label:'ATK'},
+    {key:'stamina',label:'STA'},
+    {key:'defense',label:'DEF'},
+    {key:'burst',  label:'BST'},
+    {key:'speed',  label:'SPD'},
+  ];
+
+  const size = 200;
+  const n = axes.length, cx = size/2, cy = size/2, r = size*0.33;
+  const angle = i => (Math.PI*2*i/n) - Math.PI/2;
+  const pt = (i, pct) => {
+    const a = angle(i);
+    return [cx + Math.cos(a)*r*pct, cy + Math.sin(a)*r*pct];
+  };
+  const toPts = stats => axes.map((ax,i) => pt(i, Math.max(0.04,(stats[ax.key]||0)/100)));
+
+  const colA = statsA ? (SYS_COL[comboA.system]||'#00b4ff') : '#00b4ff';
+  const colB = statsB ? (SYS_COL[comboB.system]||'#f59e0b') : '#f59e0b';
+
+  if (allCombos.length < 2) return null;
+
+  return (
+    <div style={{background:'var(--bg-card2)',border:'1px solid var(--border-card)',
+                 borderRadius:12,padding:'14px 12px',marginTop:14}}>
+      <div style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'1px',
+                   color:'var(--text-dimmer)',marginBottom:10}}>⚖ Confronto Radar</div>
+
+      {/* Selettori */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:12}}>
+        {[
+          {slot:slotA, setSlot:setSlotA, col:colA, label:'A'},
+          {slot:slotB, setSlot:setSlotB, col:colB, label:'B'},
+        ].map(({slot,setSlot,col,label}) => (
+          <div key={label}>
+            <div style={{fontSize:9,fontWeight:800,color:col,marginBottom:3}}>
+              COMBO {label}
+            </div>
+            <select value={slot} onChange={e => setSlot(e.target.value)}
+              style={{width:'100%',background:'var(--bg-select)',color:'var(--text-primary)',
+                      border:`1px solid ${col}55`,borderRadius:6,padding:'5px 6px',fontSize:11}}>
+              {allCombos.map(c => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      {/* Radar sovrapposto */}
+      {(statsA || statsB) ? (
+        <div style={{position:'relative',display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
+          <svg width={size} height={size} style={{overflow:'visible',display:'block'}}>
+            {/* Grid */}
+            {[0.25,0.5,0.75,1.0].map(lvl => (
+              <polygon key={lvl}
+                points={axes.map((_,i) => pt(i,lvl).join(',')).join(' ')}
+                fill="none" stroke="var(--border-card)" strokeWidth={lvl===1?1.5:1} opacity={lvl===1?0.5:0.3}/>
+            ))}
+            {axes.map((_,i) => { const [x,y]=pt(i,1); return (
+              <line key={i} x1={cx} y1={cy} x2={x} y2={y}
+                stroke="var(--border-card)" strokeWidth="1" opacity="0.35"/>
+            );})}
+            {/* Combo B (retro) */}
+            {statsB && (() => { const pts = toPts(statsB); return (
+              <>
+                <polygon points={pts.map(p=>p.join(',')).join(' ')}
+                  fill={`${colB}22`} stroke={colB} strokeWidth="2"
+                  strokeLinejoin="round" strokeDasharray="5,3" opacity="0.85"/>
+                {pts.map(([x,y],i) => <circle key={i} cx={x} cy={y} r="3" fill={colB} opacity="0.8"/>)}
+              </>
+            );})()}
+            {/* Combo A (sopra) */}
+            {statsA && (() => { const pts = toPts(statsA); return (
+              <>
+                <polygon points={pts.map(p=>p.join(',')).join(' ')}
+                  fill={`${colA}2a`} stroke={colA} strokeWidth="2.5" strokeLinejoin="round"/>
+                {pts.map(([x,y],i) => <circle key={i} cx={x} cy={y} r="3.5" fill={colA}/>)}
+              </>
+            );})()}
+            {/* Labels + delta */}
+            {axes.map((ax,i) => {
+              const [x,y] = pt(i, 1.28);
+              const vA = statsA?.[ax.key]||0;
+              const vB = statsB?.[ax.key]||0;
+              const delta = vA - vB;
+              return (
+                <g key={ax.key}>
+                  <text x={x} y={y-2} textAnchor="middle" dominantBaseline="middle"
+                    fontSize="8.5" fontWeight="700" fill="var(--text-dimmer)">{ax.label}</text>
+                  {statsA && <text x={x} y={y+9} textAnchor="middle" dominantBaseline="middle"
+                    fontSize="10" fontWeight="900" fill={colA}>{vA}</text>}
+                  {statsA && statsB && (
+                    <text x={x} y={y+20} textAnchor="middle" dominantBaseline="middle"
+                      fontSize="8" fontWeight="800"
+                      fill={delta>0?'#22c55e':delta<0?'#ef4444':'var(--text-ghost)'}>
+                      {delta>0?`+${delta}`:delta===0?'=':delta}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Legenda */}
+          <div style={{display:'flex',gap:14,justifyContent:'center'}}>
+            {[
+              {col:colA, label: allCombos.find(c=>c.id===slotA)?.label||'A', solid:true},
+              {col:colB, label: allCombos.find(c=>c.id===slotB)?.label||'B', solid:false},
+            ].map(({col,label,solid}) => (
+              <div key={label} style={{display:'flex',alignItems:'center',gap:5}}>
+                <svg width="20" height="8">
+                  <line x1="0" y1="4" x2="20" y2="4" stroke={col} strokeWidth="2.5"
+                    strokeDasharray={solid?'none':'5,3'}/>
+                </svg>
+                <span style={{fontSize:9,color:'var(--text-secondary)',fontWeight:700,
+                              maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{textAlign:'center',fontSize:11,color:'var(--text-ghost)',padding:'20px 0'}}>
+          Completa almeno una combo per il confronto
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function MetaPresetsPanel({ onApply }) {
   const [roleFilter, setRoleFilter] = useState("All");
   const [sysFilter,  setSysFilter]  = useState("All");
@@ -1148,6 +1307,7 @@ function App() {
                     </div>
                   </div>
                 ))}
+                <ComboCompareRadar myCombo={s.myCombo} opponents={s.opponents||[]}/>
               </>
             )}
 
